@@ -15,12 +15,13 @@ setup(
     zip_safe=True,
     maintainer='trav',
     maintainer_email='travis.mendoza@eyezense.com',
-    description='A package for streaming ROS2 topics via TCP',
+    description='A package to process and stream data collected by a TurtleBot3',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'stream_topic = ez_tb3_streamer.stream_ros2_topic_to_LAN:main',
+            'analog_processor = ez_tb3_streamer.analog_processor:main',
         ],
     },
 )
