@@ -44,7 +44,8 @@ class AnalogProcessor(Node):
                 ('sensors.temp.conversion', 'temperature'),
                 
                 ('publish_diagnostic_array', True),
-                ('publish_float_array', True)
+                ('publish_float_array', True),
+                ('voltage_offset', -1.1)  # Default voltage offset of -1.1V
             ]
         )
         
@@ -75,6 +76,7 @@ class AnalogProcessor(Node):
             
         self.get_logger().info('Analog processor node initialized - averaging data at 1Hz')
         self.get_logger().info(f'Active sensors: {[s["name"] for s in self.sensors.values() if s["enabled"]]}')
+        self.get_logger().info(f'Voltage offset: {self.voltage_offset}V')
         
     def load_config(self):
         """Load sensor configuration from parameters"""
@@ -97,6 +99,9 @@ class AnalogProcessor(Node):
         
         # Filter to only enabled sensors and sort by pin
         self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
+        
+        # Get voltage offset parameter
+        self.voltage_offset = self.get_parameter('voltage_offset').value
         
         # Check for publishing options
         self.publish_diagnostic = self.get_parameter('publish_diagnostic_array').value
@@ -127,8 +132,8 @@ class AnalogProcessor(Node):
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
             if pin < len(avg_values):  # Ensure pin is within range of data
-                # Convert to voltage first (0-1023 ADC to 0-5V)
-                voltage = float(avg_values[pin]) * (5.0/1023.0)
+                # Convert to voltage first (0-1023 ADC to 0-5V) with offset
+                voltage = float(avg_values[pin]) * (5.0/1023.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
