@@ -1,8 +1,11 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import UInt16MultiArray, Float32MultiArray
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import numpy as np
-from rclpy.timer import Timer
+import yaml
+import os
+from ament_index_python.packages import get_package_share_directory
 
 class AnalogProcessor(Node):
     def __init__(self):
@@ -11,6 +14,43 @@ class AnalogProcessor(Node):
         # Data buffer to store incoming measurements
         self.data_buffer = []
         
+        # Define sensor configurations with default values
+        self.declare_parameters(
+            namespace='',
+            parameters=[
+                ('sensors.co.pin', 0),
+                ('sensors.co.enabled', True),
+                ('sensors.co.unit', 'V'),
+                ('sensors.co.conversion', 'voltage'),
+                
+                ('sensors.no2.pin', 1),
+                ('sensors.no2.enabled', True), 
+                ('sensors.no2.unit', 'V'),
+                ('sensors.no2.conversion', 'voltage'),
+                
+                ('sensors.nh3.pin', 2),
+                ('sensors.nh3.enabled', True),
+                ('sensors.nh3.unit', 'V'),
+                ('sensors.nh3.conversion', 'voltage'),
+                
+                ('sensors.rh.pin', 3),
+                ('sensors.rh.enabled', True),
+                ('sensors.rh.unit', '%'),
+                ('sensors.rh.conversion', 'humidity'),
+                
+                ('sensors.temp.pin', 4),
+                ('sensors.temp.enabled', True),
+                ('sensors.temp.unit', '°C'),
+                ('sensors.temp.conversion', 'temperature'),
+                
+                ('publish_diagnostic_array', True),
+                ('publish_float_array', True)
+            ]
+        )
+        
+        # Load configuration
+        self.load_config()
+        
         # Subscribe to raw analog pins data
         self.subscription = self.create_subscription(
             UInt16MultiArray,
@@ -18,16 +58,49 @@ class AnalogProcessor(Node):
             self.collect_analog_data,
             10)
             
-        # Publisher for processed data
-        self.publisher = self.create_publisher(
+        # Publisher for processed data as Float32MultiArray
+        self.float_publisher = self.create_publisher(
             Float32MultiArray,
-            '/processed_analog_input',
+            '/processed_analog',
+            10)
+            
+        # Publisher for diagnostic array (includes names and units)
+        self.diag_publisher = self.create_publisher(
+            DiagnosticArray,
+            '/sensor_readings',
             10)
             
         # Create 1Hz timer for publishing
         self.timer = self.create_timer(1.0, self.process_and_publish)
             
         self.get_logger().info('Analog processor node initialized - averaging data at 1Hz')
+        self.get_logger().info(f'Active sensors: {[s["name"] for s in self.sensors.values() if s["enabled"]]}')
+        
+    def load_config(self):
+        """Load sensor configuration from parameters"""
+        self.sensors = {}
+        
+        # Create sensor configurations from parameters
+        for sensor in ['co', 'no2', 'nh3', 'rh', 'temp']:
+            pin = self.get_parameter(f'sensors.{sensor}.pin').value
+            enabled = self.get_parameter(f'sensors.{sensor}.enabled').value
+            unit = self.get_parameter(f'sensors.{sensor}.unit').value
+            conversion = self.get_parameter(f'sensors.{sensor}.conversion').value
+            
+            self.sensors[pin] = {
+                "name": sensor,
+                "enabled": enabled,
+                "unit": unit,
+                "conversion": conversion,
+                "pin": pin
+            }
+        
+        # Filter to only enabled sensors and sort by pin
+        self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
+        
+        # Check for publishing options
+        self.publish_diagnostic = self.get_parameter('publish_diagnostic_array').value
+        self.publish_float_array = self.get_parameter('publish_float_array').value
         
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer"""
@@ -44,23 +117,82 @@ class AnalogProcessor(Node):
         # Convert buffer to numpy array for easier averaging
         data_array = np.array(self.data_buffer)
         
-        # Calculate average for each of the 6 analog pins
+        # Calculate average for each of the analog pins
         avg_values = np.mean(data_array, axis=0)
         
-        # Convert 10-bit ADC values (0-1023) to voltage (0-5V)
-        processed_data = [float(value) * (5.0/1023.0) for value in avg_values]
+        # Create a dictionary to store processed values by sensor
+        processed_values = {}
+        float_array_values = []
         
-        # Create and publish the processed data
-        processed_msg = Float32MultiArray()
-        processed_msg.data = processed_data
-        self.publisher.publish(processed_msg)
+        # Process each sensor according to its configuration
+        for pin, sensor in self.enabled_sensors.items():
+            if pin < len(avg_values):  # Ensure pin is within range of data
+                # Convert to voltage first (0-1023 ADC to 0-5V)
+                voltage = float(avg_values[pin]) * (5.0/1023.0)
+                
+                # Apply specific conversion if needed
+                if sensor["conversion"] == "voltage":
+                    # Keep as voltage
+                    value = voltage
+                elif sensor["conversion"] == "humidity":
+                    # RH (%) = -12.5 + 125 * V/5
+                    value = -12.5 + 125 * voltage / 5.0
+                elif sensor["conversion"] == "temperature":
+                    # T (°C) = -66.875 + 218.75 * V/5
+                    value = -66.875 + 218.75 * voltage / 5.0
+                else:
+                    # Default to voltage
+                    value = voltage
+                
+                processed_values[sensor["name"]] = {
+                    "value": value,
+                    "unit": sensor["unit"]
+                }
+                
+                # Also add to flat array for the Float32MultiArray message
+                float_array_values.append(value)
         
-        # Log information (use actual value count for accuracy)
+        # Publish diagnostic array with named values
+        if self.publish_diagnostic:
+            self.publish_diagnostic_array(processed_values)
+            
+        # Publish float array for backward compatibility or simple plotting
+        if self.publish_float_array:
+            self.publish_float_array_msg(float_array_values)
+        
+        # Log information
         samples_count = len(self.data_buffer)
-        self.get_logger().info(f'Published processed data from {samples_count} samples: {processed_data}')
+        self.get_logger().info(f'Published processed data from {samples_count} samples')
         
         # Clear the buffer for the next cycle
         self.data_buffer = []
+
+    def publish_diagnostic_array(self, processed_values):
+        """Publish data as DiagnosticArray with names and units"""
+        diag_array = DiagnosticArray()
+        diag_array.header.stamp = self.get_clock().now().to_msg()
+        
+        # Create a status message for environmental sensors
+        status = DiagnosticStatus()
+        status.name = "Environmental Sensors"
+        status.level = DiagnosticStatus.OK
+        status.message = "Sensor readings"
+        
+        # Add each sensor reading as a key-value pair
+        for sensor_name, data in processed_values.items():
+            key_value = KeyValue()
+            key_value.key = f"{sensor_name} ({data['unit']})"
+            key_value.value = f"{data['value']:.2f}"
+            status.values.append(key_value)
+            
+        diag_array.status.append(status)
+        self.diag_publisher.publish(diag_array)
+
+    def publish_float_array_msg(self, values):
+        """Publish data as Float32MultiArray"""
+        float_msg = Float32MultiArray()
+        float_msg.data = values
+        self.float_publisher.publish(float_msg)
 
 def main(args=None):
     rclpy.init(args=args)

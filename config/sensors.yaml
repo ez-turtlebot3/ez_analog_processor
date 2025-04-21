@@ -1,0 +1,30 @@
+analog_processor:
+  ros__parameters:
+    sensors:
+      co:
+        pin: 0
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      no2:
+        pin: 1
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      nh3:
+        pin: 2
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      rh:
+        pin: 3
+        enabled: true
+        unit: "%"
+        conversion: "humidity"
+      temp:
+        pin: 4
+        enabled: true
+        unit: "°C"
+        conversion: "temperature"
+    publish_diagnostic_array: true
+    publish_float_array: true

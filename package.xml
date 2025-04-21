@@ -3,13 +3,15 @@
 <package format="3">
   <name>ez_tb3_streamer</name>
   <version>0.1.0</version>
-  <description>A package to process and stream data collected by a TurtleBot3</description>
+  <description>A package for processing and streaming TurtleBot3 sensor data</description>
   <maintainer email="travis.mendoza@eyezense.com">trav</maintainer>
   <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>diagnostic_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
