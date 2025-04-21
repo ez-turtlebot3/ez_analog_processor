@@ -28,4 +28,8 @@ analog_processor:
         conversion: "temperature"
     publish_diagnostic_array: true
     publish_float_array: true
-    voltage_offset: -1.1  # Voltage offset in volts applied to all analog readings
+    voltage_offset: -1.1
+
+streaming:
+  processed_analog:
+    port: 5003
