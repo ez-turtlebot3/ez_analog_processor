@@ -31,5 +31,6 @@ analog_processor:
     voltage_offset: -1.1
 
 streaming:
-  processed_analog:
-    port: 5003
+  ros__parameters:
+    processed_analog:
+      port: 5003
