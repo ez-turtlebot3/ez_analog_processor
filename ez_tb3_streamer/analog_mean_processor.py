@@ -24,7 +24,7 @@ class AnalogMeanProcessor(Node):
             10)
             
         # Create a timer that processes data at 1Hz
-        self.timer = self.create_timer(1.0, self.process_and_publish)
+        self.timer = self.create_timer(0.5, self.process_and_publish)
         
         self.get_logger().info('Analog Mean Processor started - collecting data at raw rate, publishing at 1Hz')
 
