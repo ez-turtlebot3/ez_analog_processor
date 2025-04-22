@@ -15,6 +15,9 @@ class ProcessedAnalogStreamer(Node):
         # Load configuration from YAML file
         self.port = self.load_config()
         
+        # Fixed message size in bytes
+        self.fixed_message_size = 128  # Can be adjusted as needed
+        
         # Initialize socket and client list
         self._tcp_clients = []
         
@@ -26,6 +29,7 @@ class ProcessedAnalogStreamer(Node):
             10)
             
         self.get_logger().info(f'Starting to stream /processed_analog topic on port {self.port}')
+        self.get_logger().info(f'Using fixed message size of {self.fixed_message_size} bytes')
         
         # Start TCP server in a separate thread
         self.server_thread = threading.Thread(target=self.run_server)
@@ -77,8 +81,8 @@ class ProcessedAnalogStreamer(Node):
             return
             
         try:
-            # Extract the data array
-            processed_data = list(msg.data)
+            # Extract the data array and round to 3 decimal places
+            processed_data = [round(value, 3) for value in msg.data]
             
             # Create a simple JSON structure
             data = {
@@ -98,10 +102,24 @@ class ProcessedAnalogStreamer(Node):
         """Send data to all connected clients"""
         data_bytes = data_str.encode('utf-8')
         
+        # Ensure the message has the fixed byte length
+        if len(data_bytes) > self.fixed_message_size:
+            # Truncate if too long
+            fixed_data = data_bytes[:self.fixed_message_size]
+            if len(fixed_data) < self.fixed_message_size:
+                # This shouldn't happen but just in case truncation creates an invalid UTF-8 sequence
+                padding = b' ' * (self.fixed_message_size - len(fixed_data))
+                fixed_data = fixed_data + padding
+            self.get_logger().debug(f'Message truncated from {len(data_bytes)} to {self.fixed_message_size} bytes')
+        else:
+            # Pad if too short
+            padding = b' ' * (self.fixed_message_size - len(data_bytes))
+            fixed_data = data_bytes + padding
+            
         # Copy the list to avoid modification during iteration
         for client in self._tcp_clients[:]:
             try:
-                client.send(data_bytes)
+                client.send(fixed_data)
             except Exception as e:
                 self.get_logger().error(f'Error sending to client: {e}')
                 try:
@@ -119,6 +137,7 @@ def main():
     try:
         node = ProcessedAnalogStreamer()
         print(f"Streaming /processed_analog on port {node.port}")
+        print(f"Using fixed message size of {node.fixed_message_size} bytes")
         print("Press Ctrl+C to terminate")
         rclpy.spin(node)
     except KeyboardInterrupt:
