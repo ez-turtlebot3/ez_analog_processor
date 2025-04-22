@@ -27,6 +27,7 @@ setup(
             'stream_topic = ez_tb3_streamer.stream_ros2_topic_to_LAN:main',
             'analog_processor = ez_tb3_streamer.analog_processor:main',
             'stream_processed = ez_tb3_streamer.stream_processed_analog:main',
+            'analog_mean_processor = ez_tb3_streamer.analog_mean_processor:main',
         ],
     },
 )
