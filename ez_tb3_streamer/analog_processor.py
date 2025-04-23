@@ -18,34 +18,36 @@ class AnalogProcessor(Node):
         self.declare_parameters(
             namespace='',
             parameters=[
-                ('sensors.co.pin', 0),
+                ('sensors.co.pin', 4),
                 ('sensors.co.enabled', True),
                 ('sensors.co.unit', 'V'),
                 ('sensors.co.conversion', 'voltage'),
                 
-                ('sensors.no2.pin', 1),
+                ('sensors.no2.pin', 2),
                 ('sensors.no2.enabled', True), 
                 ('sensors.no2.unit', 'V'),
                 ('sensors.no2.conversion', 'voltage'),
                 
-                ('sensors.nh3.pin', 2),
+                ('sensors.nh3.pin', 3),
                 ('sensors.nh3.enabled', True),
                 ('sensors.nh3.unit', 'V'),
                 ('sensors.nh3.conversion', 'voltage'),
                 
-                ('sensors.rh.pin', 3),
+                ('sensors.rh.pin', 1),
                 ('sensors.rh.enabled', True),
                 ('sensors.rh.unit', '%'),
                 ('sensors.rh.conversion', 'humidity'),
                 
-                ('sensors.temp.pin', 4),
+                ('sensors.temp.pin', 0),
                 ('sensors.temp.enabled', True),
                 ('sensors.temp.unit', '°C'),
                 ('sensors.temp.conversion', 'temperature'),
                 
                 ('publish_diagnostic_array', True),
                 ('publish_float_array', True),
-                ('voltage_offset', -1.1)  # Default voltage offset of -1.1V
+                ('publish_mean_analog', True),  # New parameter to control mean_analog publishing
+                ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
+                ('update_rate', 1.0)      # Default update rate of 1.0 Hz
             ]
         )
         
@@ -71,10 +73,17 @@ class AnalogProcessor(Node):
             '/sensor_readings',
             10)
             
-        # Create 1Hz timer for publishing
-        self.timer = self.create_timer(1.0, self.process_and_publish)
+        # Publisher for mean analog data (raw averaged values)
+        self.mean_publisher = self.create_publisher(
+            UInt16MultiArray,
+            '/mean_analog',
+            10)
             
-        self.get_logger().info('Analog processor node initialized - averaging data at 1Hz')
+        # Create timer for publishing using the configured update rate
+        update_period = 1.0 / self.update_rate  # Convert frequency to period
+        self.timer = self.create_timer(update_period, self.process_and_publish)
+            
+        self.get_logger().info(f'Analog processor node initialized - averaging data at {self.update_rate} Hz')
         self.get_logger().info(f'Active sensors: {[s["name"] for s in self.sensors.values() if s["enabled"]]}')
         self.get_logger().info(f'Voltage offset: {self.voltage_offset}V')
         
@@ -103,9 +112,13 @@ class AnalogProcessor(Node):
         # Get voltage offset parameter
         self.voltage_offset = self.get_parameter('voltage_offset').value
         
+        # Get update rate parameter
+        self.update_rate = self.get_parameter('update_rate').value
+        
         # Check for publishing options
         self.publish_diagnostic = self.get_parameter('publish_diagnostic_array').value
         self.publish_float_array = self.get_parameter('publish_float_array').value
+        self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
         
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer"""
@@ -114,9 +127,9 @@ class AnalogProcessor(Node):
         self.get_logger().debug(f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}')
     
     def process_and_publish(self):
-        """Process buffered data and publish at 1Hz"""
+        """Process buffered data and publish at configured rate"""
         if not self.data_buffer:
-            self.get_logger().warn('No data collected in the last second')
+            self.get_logger().warn(f'No data collected in the last {1.0/self.update_rate} seconds')
             return
             
         # Convert buffer to numpy array for easier averaging
@@ -124,6 +137,17 @@ class AnalogProcessor(Node):
         
         # Calculate average for each of the analog pins
         avg_values = np.mean(data_array, axis=0)
+        
+        # Publish mean analog values first (raw averaged values as integers)
+        if self.publish_mean_analog:
+            # Round values to integers for UInt16MultiArray
+            int_avg_values = [int(round(x)) for x in avg_values]
+            
+            # Create and publish UInt16MultiArray message
+            mean_msg = UInt16MultiArray()
+            mean_msg.data = int_avg_values
+            self.mean_publisher.publish(mean_msg)
+            self.get_logger().debug(f'Published mean analog data: {int_avg_values}')
         
         # Create a dictionary to store processed values by sensor
         processed_values = {}
