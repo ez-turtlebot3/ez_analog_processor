@@ -61,6 +61,12 @@ class AnalogProcessor(Node):
             self.collect_analog_data,
             10)
             
+        # Publisher for mean analog data (raw averaged values)
+        self.mean_publisher = self.create_publisher(
+            UInt16MultiArray,
+            '/mean_analog',
+            10)
+        
         # Publisher for processed data as Float32MultiArray
         self.float_publisher = self.create_publisher(
             Float32MultiArray,
@@ -71,12 +77,6 @@ class AnalogProcessor(Node):
         self.diag_publisher = self.create_publisher(
             DiagnosticArray,
             '/sensor_readings',
-            10)
-            
-        # Publisher for mean analog data (raw averaged values)
-        self.mean_publisher = self.create_publisher(
-            UInt16MultiArray,
-            '/mean_analog',
             10)
             
         # Create timer for publishing using the configured update rate
@@ -92,7 +92,7 @@ class AnalogProcessor(Node):
         self.sensors = {}
         
         # Create sensor configurations from parameters
-        for sensor in ['co', 'no2', 'nh3', 'rh', 'temp']:
+        for sensor in ['temp', 'rh', 'no2', 'nh3', 'co']:
             pin = self.get_parameter(f'sensors.{sensor}.pin').value
             enabled = self.get_parameter(f'sensors.{sensor}.enabled').value
             unit = self.get_parameter(f'sensors.{sensor}.unit').value
