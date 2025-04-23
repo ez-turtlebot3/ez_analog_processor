@@ -18,10 +18,15 @@ class AnalogProcessor(Node):
         self.declare_parameters(
             namespace='',
             parameters=[
-                ('sensors.co.pin', 4),
-                ('sensors.co.enabled', True),
-                ('sensors.co.unit', 'V'),
-                ('sensors.co.conversion', 'voltage'),
+                ('sensors.temp.pin', 0),
+                ('sensors.temp.enabled', True),
+                ('sensors.temp.unit', '°C'),
+                ('sensors.temp.conversion', 'temperature'),
+
+                ('sensors.rh.pin', 1),
+                ('sensors.rh.enabled', True),
+                ('sensors.rh.unit', '%'),
+                ('sensors.rh.conversion', 'humidity'),
                 
                 ('sensors.no2.pin', 2),
                 ('sensors.no2.enabled', True), 
@@ -32,16 +37,11 @@ class AnalogProcessor(Node):
                 ('sensors.nh3.enabled', True),
                 ('sensors.nh3.unit', 'V'),
                 ('sensors.nh3.conversion', 'voltage'),
-                
-                ('sensors.rh.pin', 1),
-                ('sensors.rh.enabled', True),
-                ('sensors.rh.unit', '%'),
-                ('sensors.rh.conversion', 'humidity'),
-                
-                ('sensors.temp.pin', 0),
-                ('sensors.temp.enabled', True),
-                ('sensors.temp.unit', '°C'),
-                ('sensors.temp.conversion', 'temperature'),
+            
+                ('sensors.co.pin', 4),
+                ('sensors.co.enabled', True),
+                ('sensors.co.unit', 'V'),
+                ('sensors.co.conversion', 'voltage'),
                 
                 ('publish_diagnostic_array', True),
                 ('publish_float_array', True),
