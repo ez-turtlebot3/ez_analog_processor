@@ -30,7 +30,7 @@ analog_processor:
     publish_float_array: true
     publish_mean_analog: true
     voltage_offset: 0.0
-    update_rate: 1.0    # Update frequency in Hz (1.0 = once per second)
+    update_rate: 2.0   # Update frequency in Hz (1.0 = once per second)
 
 streaming:
   ros__parameters:
