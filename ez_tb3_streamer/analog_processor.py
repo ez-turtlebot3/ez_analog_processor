@@ -156,8 +156,8 @@ class AnalogProcessor(Node):
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
             if pin < len(avg_values):  # Ensure pin is within range of data
-                # Convert to voltage first (0-1023 ADC to 0-5V) with offset
-                voltage = float(avg_values[pin]) * (5.0/1023.0) + self.voltage_offset
+                # Convert to voltage first (0-1023 ADC to 0-3.3V) with offset
+                voltage = float(avg_values[pin]) * (3.3/1023.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
