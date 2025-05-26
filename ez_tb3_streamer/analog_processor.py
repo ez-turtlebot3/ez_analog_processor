@@ -164,11 +164,11 @@ class AnalogProcessor(Node):
                     # Keep as voltage
                     value = voltage
                 elif sensor["conversion"] == "humidity":
-                    # RH (%) = -12.5 + 125 * V/5
-                    value = -12.5 + 125 * voltage / 5.0
+                    # RH (%) = -12.5 + 125 * V/3.3
+                    value = -12.5 + 125 * voltage / 3.3
                 elif sensor["conversion"] == "temperature":
-                    # T (°C) = -66.875 + 218.75 * V/5
-                    value = -66.875 + 218.75 * voltage / 5.0
+                    # T (°C) = -66.875 + 218.75 * V/3.3
+                    value = -66.875 + 218.75 * voltage / 3.3
                 else:
                     # Default to voltage
                     value = voltage
