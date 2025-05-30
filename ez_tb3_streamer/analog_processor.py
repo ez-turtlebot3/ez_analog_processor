@@ -28,20 +28,20 @@ class AnalogProcessor(Node):
                 ('sensors.rh.unit', '%'),
                 ('sensors.rh.conversion', 'humidity'),
                 
-                ('sensors.no2.pin', 2),
-                ('sensors.no2.enabled', True), 
-                ('sensors.no2.unit', 'V'),
-                ('sensors.no2.conversion', 'voltage'),
+                ('sensors.s1.pin', 2),
+                ('sensors.s1.enabled', True), 
+                ('sensors.s1.unit', 'V'),
+                ('sensors.s1.conversion', 'voltage'),
                 
-                ('sensors.nh3.pin', 3),
-                ('sensors.nh3.enabled', True),
-                ('sensors.nh3.unit', 'V'),
-                ('sensors.nh3.conversion', 'voltage'),
+                ('sensors.s2.pin', 3),
+                ('sensors.s2.enabled', True),
+                ('sensors.s2.unit', 'V'),
+                ('sensors.s2.conversion', 'voltage'),
             
-                ('sensors.co.pin', 4),
-                ('sensors.co.enabled', True),
-                ('sensors.co.unit', 'V'),
-                ('sensors.co.conversion', 'voltage'),
+                ('sensors.s3.pin', 4),
+                ('sensors.s3.enabled', True),
+                ('sensors.s3.unit', 'V'),
+                ('sensors.s3.conversion', 'voltage'),
                 
                 ('publish_diagnostic_array', True),
                 ('publish_float_array', True),
@@ -92,7 +92,7 @@ class AnalogProcessor(Node):
         self.sensors = {}
         
         # Create sensor configurations from parameters
-        for sensor in ['temp', 'rh', 'no2', 'nh3', 'co']:
+        for sensor in ['temp', 'rh', 's1', 's2', 's3']:
             pin = self.get_parameter(f'sensors.{sensor}.pin').value
             enabled = self.get_parameter(f'sensors.{sensor}.enabled').value
             unit = self.get_parameter(f'sensors.{sensor}.unit').value
@@ -165,7 +165,7 @@ class AnalogProcessor(Node):
                     value = voltage
                 elif sensor["conversion"] == "humidity":
                     # RH (%) = -12.5 + 125 * V/3.3  => Equation taken from sensor documentation
-                    value = 125 * voltage / 3.3 # Adjusted equation with empirical data offset
+                    value = -30 + 125 * voltage / 3.3 # Adjusted equation with empirical data offset
                 elif sensor["conversion"] == "temperature":
                     # T (°C) = -66.875 + 218.75 * V/3.3  => Equation taken from sensor documentation
                     value = -42.0 + 218.75 * voltage / 3.3 # Adjusted equation with empirical data offset

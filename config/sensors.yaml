@@ -1,17 +1,17 @@
 analog_processor:
   ros__parameters:
     sensors:
-      co:
+      s3:
         pin: 4
         enabled: true
         unit: "V"
         conversion: "voltage"
-      no2:
+      s1:
         pin: 2
         enabled: true
         unit: "V"
         conversion: "voltage"
-      nh3:
+      s2:
         pin: 3
         enabled: true
         unit: "V"
