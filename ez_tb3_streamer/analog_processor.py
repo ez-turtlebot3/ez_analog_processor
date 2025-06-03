@@ -114,6 +114,10 @@ class AnalogProcessor(Node):
         # Get voltage offset parameter
         self.voltage_offset = self.get_parameter('voltage_offset').value
         
+        # Get temperature and humidity offset parameters
+        self.temperature_offset = self.get_parameter('temperature_offset').value
+        self.humidity_offset = self.get_parameter('humidity_offset').value
+        
         # Get update rate parameter
         self.update_rate = self.get_parameter('update_rate').value
         
