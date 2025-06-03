@@ -45,8 +45,10 @@ class AnalogProcessor(Node):
                 
                 ('publish_diagnostic_array', True),
                 ('publish_float_array', True),
-                ('publish_mean_analog', True),  # New parameter to control mean_analog publishing
+                ('publish_mean_analog', True),
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
+                ('temperature_offset', 0.0),
+                ('humidity_offset', 0.0),
                 ('update_rate', 1.0)      # Default update rate of 1.0 Hz
             ]
         )
@@ -165,10 +167,10 @@ class AnalogProcessor(Node):
                     value = voltage
                 elif sensor["conversion"] == "humidity":
                     # RH (%) = -12.5 + 125 * V/3.3  => Equation taken from sensor documentation
-                    value = -30 + 125 * voltage / 3.3 # Adjusted equation with empirical data offset
+                    value = (-12.5 + self.humidity_offset) + 125 * voltage / 3.3 # Adjusted equation with empirical data offset
                 elif sensor["conversion"] == "temperature":
                     # T (°C) = -66.875 + 218.75 * V/3.3  => Equation taken from sensor documentation
-                    value = -42.0 + 218.75 * voltage / 3.3 # Adjusted equation with empirical data offset
+                    value = (-66.875 + self.temperature_offset) + 218.75 * voltage / 3.3
                 else:
                     # Default to voltage
                     value = voltage
