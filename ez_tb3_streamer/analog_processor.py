@@ -5,6 +5,7 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import numpy as np
 import yaml
 import os
+from collections import deque
 from ament_index_python.packages import get_package_share_directory
 
 class AnalogProcessor(Node):
@@ -13,6 +14,9 @@ class AnalogProcessor(Node):
         
         # Data buffer to store incoming measurements
         self.data_buffer = []
+        
+        # Moving buffer for each sensor (7 points)
+        self.sensor_buffers = {}
         
         # Define sensor configurations with default values
         self.declare_parameters(
@@ -107,6 +111,10 @@ class AnalogProcessor(Node):
                 "conversion": conversion,
                 "pin": pin
             }
+            
+            # Initialize moving buffer for each enabled sensor
+            if enabled:
+                self.sensor_buffers[pin] = deque(maxlen=7)
         
         # Filter to only enabled sensors and sort by pin
         self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
@@ -126,10 +134,26 @@ class AnalogProcessor(Node):
         self.publish_float_array = self.get_parameter('publish_float_array').value
         self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
         
+    def calculate_trimmean(self, values):
+        """Calculate the trimmean of values, using middle 3 values if 7 points available"""
+        if len(values) < 7:
+            return np.mean(values)
+        
+        sorted_values = np.sort(values)
+        # Take middle 3 values (indices 2,3,4)
+        middle_values = sorted_values[2:5]
+        return np.mean(middle_values)
+
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer"""
         # Add new data to the buffer
         self.data_buffer.append(list(msg.data))
+        
+        # Update moving buffers for each sensor
+        for pin in self.enabled_sensors:
+            if pin < len(msg.data):
+                self.sensor_buffers[pin].append(msg.data[pin])
+        
         self.get_logger().debug(f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}')
     
     def process_and_publish(self):
@@ -162,8 +186,11 @@ class AnalogProcessor(Node):
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
             if pin < len(avg_values):  # Ensure pin is within range of data
+                # Get the trimmean of the moving buffer
+                raw_value = self.calculate_trimmean(list(self.sensor_buffers[pin]))
+                
                 # Convert to voltage first (0-1023 ADC to 0-3.3V) with offset
-                voltage = float(avg_values[pin]) * (3.3/1023.0) + self.voltage_offset
+                voltage = float(raw_value) * (3.3/1023.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
