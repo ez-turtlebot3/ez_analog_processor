@@ -189,8 +189,8 @@ class AnalogProcessor(Node):
                 # Get the trimmean of the moving buffer
                 raw_value = self.calculate_trimmean(list(self.sensor_buffers[pin]))
                 
-                # Convert to voltage first (0-1023 ADC to 0-3.3V) with offset
-                voltage = float(raw_value) * (3.3/1023.0) + self.voltage_offset
+                # Convert to voltage first (0-4095 ADC to 0-3.3V) with offset
+                voltage = float(raw_value) * (3.3/4095.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
