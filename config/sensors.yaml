@@ -17,7 +17,7 @@ analog_processor:
         unit: "V"
         conversion: "voltage"
       rh:
-        pin: 1
+        pin: 5
         enabled: true
         unit: "%"
         conversion: "humidity"
