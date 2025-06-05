@@ -15,7 +15,7 @@ class AnalogProcessor(Node):
         # Data buffer to store incoming measurements
         self.data_buffer = []
         
-        # Moving buffer for each sensor (7 points)
+        # Moving buffer for each sensor (35 points)
         self.sensor_buffers = {}
         
         # Define sensor configurations with default values
@@ -114,7 +114,7 @@ class AnalogProcessor(Node):
             
             # Initialize moving buffer for each enabled sensor
             if enabled:
-                self.sensor_buffers[pin] = deque(maxlen=7)
+                self.sensor_buffers[pin] = deque(maxlen=35)
         
         # Filter to only enabled sensors and sort by pin
         self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
@@ -135,13 +135,13 @@ class AnalogProcessor(Node):
         self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
         
     def calculate_trimmean(self, values):
-        """Calculate the trimmean of values, using middle 3 values if 7 points available"""
-        if len(values) < 7:
+        """Calculate the trimmean of values, using middle 15 values if 35 points available"""
+        if len(values) < 35:
             return np.mean(values)
         
         sorted_values = np.sort(values)
-        # Take middle 3 values (indices 2,3,4)
-        middle_values = sorted_values[2:5]
+        # Take middle 15 values (indices 10-24)
+        middle_values = sorted_values[10:25]
         return np.mean(middle_values)
 
     def collect_analog_data(self, msg):
@@ -223,7 +223,7 @@ class AnalogProcessor(Node):
             self.publish_float_array_msg(float_array_values)
         
         # Log information
-        samples_count = len(self.data_buffer)
+        samples_count = len(next(iter(self.sensor_buffers.values()))) if self.sensor_buffers else 0
         self.get_logger().info(f'Published processed data from {samples_count} samples')
         
         # Clear the buffer for the next cycle
