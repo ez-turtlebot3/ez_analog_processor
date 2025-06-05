@@ -5,6 +5,7 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import numpy as np
 import yaml
 import os
+from collections import deque
 from ament_index_python.packages import get_package_share_directory
 
 class AnalogProcessor(Node):
@@ -13,6 +14,9 @@ class AnalogProcessor(Node):
         
         # Data buffer to store incoming measurements
         self.data_buffer = []
+        
+        # Moving buffer for each sensor (35 points)
+        self.sensor_buffers = {}
         
         # Define sensor configurations with default values
         self.declare_parameters(
@@ -28,25 +32,27 @@ class AnalogProcessor(Node):
                 ('sensors.rh.unit', '%'),
                 ('sensors.rh.conversion', 'humidity'),
                 
-                ('sensors.no2.pin', 2),
-                ('sensors.no2.enabled', True), 
-                ('sensors.no2.unit', 'V'),
-                ('sensors.no2.conversion', 'voltage'),
+                ('sensors.s1.pin', 2),
+                ('sensors.s1.enabled', True), 
+                ('sensors.s1.unit', 'V'),
+                ('sensors.s1.conversion', 'voltage'),
                 
-                ('sensors.nh3.pin', 3),
-                ('sensors.nh3.enabled', True),
-                ('sensors.nh3.unit', 'V'),
-                ('sensors.nh3.conversion', 'voltage'),
+                ('sensors.s2.pin', 3),
+                ('sensors.s2.enabled', True),
+                ('sensors.s2.unit', 'V'),
+                ('sensors.s2.conversion', 'voltage'),
             
-                ('sensors.co.pin', 4),
-                ('sensors.co.enabled', True),
-                ('sensors.co.unit', 'V'),
-                ('sensors.co.conversion', 'voltage'),
+                ('sensors.s3.pin', 4),
+                ('sensors.s3.enabled', True),
+                ('sensors.s3.unit', 'V'),
+                ('sensors.s3.conversion', 'voltage'),
                 
                 ('publish_diagnostic_array', True),
                 ('publish_float_array', True),
-                ('publish_mean_analog', True),  # New parameter to control mean_analog publishing
+                ('publish_mean_analog', True),
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
+                ('temperature_offset', 0.0),
+                ('humidity_offset', 0.0),
                 ('update_rate', 1.0)      # Default update rate of 1.0 Hz
             ]
         )
@@ -92,7 +98,7 @@ class AnalogProcessor(Node):
         self.sensors = {}
         
         # Create sensor configurations from parameters
-        for sensor in ['temp', 'rh', 'no2', 'nh3', 'co']:
+        for sensor in ['temp', 'rh', 's1', 's2', 's3']:
             pin = self.get_parameter(f'sensors.{sensor}.pin').value
             enabled = self.get_parameter(f'sensors.{sensor}.enabled').value
             unit = self.get_parameter(f'sensors.{sensor}.unit').value
@@ -105,12 +111,20 @@ class AnalogProcessor(Node):
                 "conversion": conversion,
                 "pin": pin
             }
+            
+            # Initialize moving buffer for each enabled sensor
+            if enabled:
+                self.sensor_buffers[pin] = deque(maxlen=35)
         
         # Filter to only enabled sensors and sort by pin
         self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
         
         # Get voltage offset parameter
         self.voltage_offset = self.get_parameter('voltage_offset').value
+        
+        # Get temperature and humidity offset parameters
+        self.temperature_offset = self.get_parameter('temperature_offset').value
+        self.humidity_offset = self.get_parameter('humidity_offset').value
         
         # Get update rate parameter
         self.update_rate = self.get_parameter('update_rate').value
@@ -120,10 +134,26 @@ class AnalogProcessor(Node):
         self.publish_float_array = self.get_parameter('publish_float_array').value
         self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
         
+    def calculate_trimmean(self, values):
+        """Calculate the trimmean of values, using middle 15 values if 35 points available"""
+        if len(values) < 35:
+            return np.mean(values)
+        
+        sorted_values = np.sort(values)
+        # Take middle 15 values (indices 10-24)
+        middle_values = sorted_values[10:25]
+        return np.mean(middle_values)
+
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer"""
         # Add new data to the buffer
         self.data_buffer.append(list(msg.data))
+        
+        # Update moving buffers for each sensor
+        for pin in self.enabled_sensors:
+            if pin < len(msg.data):
+                self.sensor_buffers[pin].append(msg.data[pin])
+        
         self.get_logger().debug(f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}')
     
     def process_and_publish(self):
@@ -156,8 +186,11 @@ class AnalogProcessor(Node):
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
             if pin < len(avg_values):  # Ensure pin is within range of data
-                # Convert to voltage first (0-1023 ADC to 0-3.3V) with offset
-                voltage = float(avg_values[pin]) * (3.3/1023.0) + self.voltage_offset
+                # Get the trimmean of the moving buffer
+                raw_value = self.calculate_trimmean(list(self.sensor_buffers[pin]))
+                
+                # Convert to voltage first (0-4095 ADC to 0-3.3V) with offset
+                voltage = float(raw_value) * (3.3/4095.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
@@ -165,10 +198,10 @@ class AnalogProcessor(Node):
                     value = voltage
                 elif sensor["conversion"] == "humidity":
                     # RH (%) = -12.5 + 125 * V/3.3  => Equation taken from sensor documentation
-                    value = 125 * voltage / 3.3 # Adjusted equation with empirical data offset
+                    value = (-12.5 + self.humidity_offset) + 125 * voltage / 3.3 # Adjusted equation with empirical data offset
                 elif sensor["conversion"] == "temperature":
                     # T (°C) = -66.875 + 218.75 * V/3.3  => Equation taken from sensor documentation
-                    value = -42.0 + 218.75 * voltage / 3.3 # Adjusted equation with empirical data offset
+                    value = (-66.875 + self.temperature_offset) + 218.75 * voltage / 3.3
                 else:
                     # Default to voltage
                     value = voltage
@@ -190,7 +223,7 @@ class AnalogProcessor(Node):
             self.publish_float_array_msg(float_array_values)
         
         # Log information
-        samples_count = len(self.data_buffer)
+        samples_count = len(next(iter(self.sensor_buffers.values()))) if self.sensor_buffers else 0
         self.get_logger().info(f'Published processed data from {samples_count} samples')
         
         # Clear the buffer for the next cycle

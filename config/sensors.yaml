@@ -1,17 +1,17 @@
 analog_processor:
   ros__parameters:
     sensors:
-      co:
+      s3:
         pin: 4
         enabled: true
         unit: "V"
         conversion: "voltage"
-      no2:
+      s1:
         pin: 2
         enabled: true
         unit: "V"
         conversion: "voltage"
-      nh3:
+      s2:
         pin: 3
         enabled: true
         unit: "V"
@@ -30,7 +30,9 @@ analog_processor:
     publish_float_array: true
     publish_mean_analog: true
     voltage_offset: 0.0
-    update_rate: 2.0   # Update frequency in Hz (1.0 = once per second)
+    temperature_offset: -12.0
+    humidity_offset: -17.5
+    update_rate: 4.0   # Update frequency in Hz (2.0 = twice per second)
 
 streaming:
   ros__parameters:
