@@ -52,7 +52,8 @@ class AnalogProcessor(Node):
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
                 ('temperature_offset', 0.0),
                 ('humidity_offset', 0.0),
-                ('update_rate', 1.0)      # Default update rate of 1.0 Hz
+                ('update_rate', 1.0),     # Default update rate of 1.0 Hz
+                ('ema_alpha', 0.1)        # Default EMA alpha value (0.1 = strong smoothing)
             ]
         )
         
@@ -82,6 +83,12 @@ class AnalogProcessor(Node):
         self.trimmean_publisher = self.create_publisher(
             Float32MultiArray,
             '/trimmean_filtered_analog',
+            10)
+            
+        # Publisher for EMA-filtered data
+        self.ema_publisher = self.create_publisher(
+            Float32MultiArray,
+            '/ema_filtered_analog',
             10)
             
         # Publisher for processed data as Float32MultiArray
@@ -140,9 +147,17 @@ class AnalogProcessor(Node):
         # Get update rate parameter
         self.update_rate = self.get_parameter('update_rate').value
         
+        # Get EMA alpha parameter
+        self.ema_alpha = self.get_parameter('ema_alpha').value
+        
         # Check for publishing options
         self.publish_diagnostic = self.get_parameter('publish_diagnostic_array').value
         self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
+        
+        # Initialize EMA buffers for each sensor
+        self.ema_buffers = {}
+        for pin in self.enabled_sensors:
+            self.ema_buffers[pin] = None  # Will be initialized with first value
         
     def calculate_trimmean(self, values):
         """Calculate the trimmean of values, using middle 15 values if 35 points available"""
@@ -192,8 +207,10 @@ class AnalogProcessor(Node):
         # Create dictionaries to store processed values by sensor
         median_values = {}
         trimmean_values = {}
+        ema_values = {}
         median_array_values = []
         trimmean_array_values = []
+        ema_array_values = []
         
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
@@ -203,27 +220,43 @@ class AnalogProcessor(Node):
                 median_value = np.median(buffer_values)
                 trimmean_value = self.calculate_trimmean(buffer_values)
                 
+                # Calculate EMA value
+                current_value = float(avg_values[pin])
+                if self.ema_buffers[pin] is None:
+                    # Initialize EMA with first value
+                    self.ema_buffers[pin] = current_value
+                else:
+                    # Update EMA: new_value = alpha * current_value + (1 - alpha) * previous_value
+                    self.ema_buffers[pin] = (self.ema_alpha * current_value + 
+                                           (1 - self.ema_alpha) * self.ema_buffers[pin])
+                ema_value = self.ema_buffers[pin]
+                
                 # Convert to voltage first (0-4095 ADC to 0-3.3V) with offset
                 median_voltage = float(median_value) * (3.3/4095.0) + self.voltage_offset
                 trimmean_voltage = float(trimmean_value) * (3.3/4095.0) + self.voltage_offset
+                ema_voltage = float(ema_value) * (3.3/4095.0) + self.voltage_offset
                 
                 # Apply specific conversion if needed
                 if sensor["conversion"] == "voltage":
                     # Keep as voltage
                     median_processed = median_voltage
                     trimmean_processed = trimmean_voltage
+                    ema_processed = ema_voltage
                 elif sensor["conversion"] == "humidity":
                     # RH (%) = -12.5 + 125 * V/3.3
                     median_processed = (-12.5 + self.humidity_offset) + 125 * median_voltage / 3.3
                     trimmean_processed = (-12.5 + self.humidity_offset) + 125 * trimmean_voltage / 3.3
+                    ema_processed = (-12.5 + self.humidity_offset) + 125 * ema_voltage / 3.3
                 elif sensor["conversion"] == "temperature":
                     # T (°C) = -66.875 + 218.75 * V/3.3
                     median_processed = (-66.875 + self.temperature_offset) + 218.75 * median_voltage / 3.3
                     trimmean_processed = (-66.875 + self.temperature_offset) + 218.75 * trimmean_voltage / 3.3
+                    ema_processed = (-66.875 + self.temperature_offset) + 218.75 * ema_voltage / 3.3
                 else:
                     # Default to voltage
                     median_processed = median_voltage
                     trimmean_processed = trimmean_voltage
+                    ema_processed = ema_voltage
                 
                 median_values[sensor["name"]] = {
                     "value": median_processed,
@@ -233,17 +266,22 @@ class AnalogProcessor(Node):
                     "value": trimmean_processed,
                     "unit": sensor["unit"]
                 }
+                ema_values[sensor["name"]] = {
+                    "value": ema_processed,
+                    "unit": sensor["unit"]
+                }
                 
                 # Add to arrays for the Float32MultiArray messages
                 median_array_values.append(median_processed)
                 trimmean_array_values.append(trimmean_processed)
+                ema_array_values.append(ema_processed)
         
-        # Publish diagnostic array with both filtered values
+        # Publish diagnostic array with all filtered values
         if self.publish_diagnostic:
-            self.publish_diagnostic_array(median_values, trimmean_values)
+            self.publish_diagnostic_array(median_values, trimmean_values, ema_values)
             
-        # Publish both filtered arrays
-        self.publish_filtered_arrays(median_array_values, trimmean_array_values)
+        # Publish all filtered arrays
+        self.publish_filtered_arrays(median_array_values, trimmean_array_values, ema_array_values)
         
         # Log information
         samples_count = len(next(iter(self.sensor_buffers.values()))) if self.sensor_buffers else 0
@@ -252,8 +290,8 @@ class AnalogProcessor(Node):
         # Clear the buffer for the next cycle
         self.data_buffer = []
 
-    def publish_diagnostic_array(self, median_values, trimmean_values):
-        """Publish data as DiagnosticArray with names and units for both filtering methods"""
+    def publish_diagnostic_array(self, median_values, trimmean_values, ema_values):
+        """Publish data as DiagnosticArray with names and units for all filtering methods"""
         diag_array = DiagnosticArray()
         diag_array.header.stamp = self.get_clock().now().to_msg()
         
@@ -261,20 +299,33 @@ class AnalogProcessor(Node):
         status = DiagnosticStatus()
         status.name = "Environmental Sensors"
         status.level = DiagnosticStatus.OK
-        status.message = "Sensor readings (Median / Trim Mean)"
+        status.message = "Sensor readings"
         
-        # Add each sensor reading as a key-value pair
+        # Add each sensor reading as separate key-value pairs for each filter type
         for sensor_name in median_values.keys():
-            key_value = KeyValue()
-            key_value.key = f"{sensor_name} ({median_values[sensor_name]['unit']})"
-            key_value.value = f"{median_values[sensor_name]['value']:.2f} / {trimmean_values[sensor_name]['value']:.2f}"
-            status.values.append(key_value)
+            # Add median value
+            median_key_value = KeyValue()
+            median_key_value.key = f"{sensor_name}_median ({median_values[sensor_name]['unit']})"
+            median_key_value.value = f"{median_values[sensor_name]['value']:.2f}"
+            status.values.append(median_key_value)
+            
+            # Add trim mean value
+            trimmean_key_value = KeyValue()
+            trimmean_key_value.key = f"{sensor_name}_trimmean ({trimmean_values[sensor_name]['unit']})"
+            trimmean_key_value.value = f"{trimmean_values[sensor_name]['value']:.2f}"
+            status.values.append(trimmean_key_value)
+            
+            # Add EMA value
+            ema_key_value = KeyValue()
+            ema_key_value.key = f"{sensor_name}_ema ({ema_values[sensor_name]['unit']})"
+            ema_key_value.value = f"{ema_values[sensor_name]['value']:.2f}"
+            status.values.append(ema_key_value)
             
         diag_array.status.append(status)
         self.diag_publisher.publish(diag_array)
 
-    def publish_filtered_arrays(self, median_values, trimmean_values):
-        """Publish both filtered arrays as Float32MultiArray messages"""
+    def publish_filtered_arrays(self, median_values, trimmean_values, ema_values):
+        """Publish all filtered arrays as Float32MultiArray messages"""
         # Publish median-filtered values
         median_msg = Float32MultiArray()
         median_msg.data = median_values
@@ -284,6 +335,11 @@ class AnalogProcessor(Node):
         trimmean_msg = Float32MultiArray()
         trimmean_msg.data = trimmean_values
         self.trimmean_publisher.publish(trimmean_msg)
+        
+        # Publish EMA-filtered values
+        ema_msg = Float32MultiArray()
+        ema_msg.data = ema_values
+        self.ema_publisher.publish(ema_msg)
 
     def publish_float_array_msg(self, values):
         """Publish data as Float32MultiArray"""
