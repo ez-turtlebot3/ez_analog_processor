@@ -134,15 +134,15 @@ class AnalogProcessor(Node):
         self.publish_float_array = self.get_parameter('publish_float_array').value
         self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
         
-    def calculate_trimmean(self, values):
-        """Calculate the trimmean of values, using middle 15 values if 35 points available"""
-        if len(values) < 35:
-            return np.mean(values)
+    # def calculate_trimmean(self, values):
+    #     """Calculate the trimmean of values, using middle 15 values if 35 points available"""
+    #     if len(values) < 35:
+    #         return np.median(values)
         
-        sorted_values = np.sort(values)
-        # Take middle 15 values (indices 10-24)
-        middle_values = sorted_values[10:25]
-        return np.mean(middle_values)
+    #     sorted_values = np.sort(values)
+    #     # Take middle 15 values (indices 10-24)
+    #     middle_values = sorted_values[10:25]
+    #     return np.mean(middle_values)
 
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer"""
@@ -186,8 +186,8 @@ class AnalogProcessor(Node):
         # Process each sensor according to its configuration
         for pin, sensor in self.enabled_sensors.items():
             if pin < len(avg_values):  # Ensure pin is within range of data
-                # Get the trimmean of the moving buffer
-                raw_value = self.calculate_trimmean(list(self.sensor_buffers[pin]))
+                # Get the median of the moving buffer
+                raw_value = np.median(list(self.sensor_buffers[pin]))
                 
                 # Convert to voltage first (0-4095 ADC to 0-3.3V) with offset
                 voltage = float(raw_value) * (3.3/4095.0) + self.voltage_offset
