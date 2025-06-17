@@ -1,0 +1,10 @@
+aws_iot:
+  ros__parameters:
+    endpoint: "your-aws-endpoint.iot.region.amazonaws.com"  # Replace with your AWS IoT Core endpoint
+    device_certificate: "/greengrass/v2/device.pem.crt"
+    device_private_key: "/greengrass/v2/private.pem.key"
+    amazon_root_certificate: "/greengrass/v2/AmazonRootCA1.pem"
+    mqtt_topic: "ez-tb/sensordata/analog"
+    sensor_type: "Analog"
+    mqtt_port: 8883
+    publish_interval: 1.0

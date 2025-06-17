@@ -1,0 +1,40 @@
+analog_processor:
+  ros__parameters:
+    sensors:
+      s3:
+        pin: 4
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      s1:
+        pin: 2
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      s2:
+        pin: 3
+        enabled: true
+        unit: "V"
+        conversion: "voltage"
+      rh:
+        pin: 1
+        enabled: true
+        unit: "%"
+        conversion: "humidity"
+      temp:
+        pin: 0
+        enabled: true
+        unit: "°C"
+        conversion: "temperature"
+    publish_diagnostic_array: true
+    publish_float_array: true
+    publish_mean_analog: true
+    voltage_offset: 0.0
+    temperature_offset: -12.0
+    humidity_offset: -17.5
+    update_rate: 4.0   # Update frequency in Hz (2.0 = twice per second)
+
+streaming:
+  ros__parameters:
+    processed_analog:
+      port: 5003
