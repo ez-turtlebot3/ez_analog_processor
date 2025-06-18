@@ -6,35 +6,36 @@ This ROS 2 package sits as the cherry on top of two other ROS 2 packages:
 
 ez_analog_processor then takes /analog_pins data as input, processes that data, and publishes that processed data to several new topics.
 
-## Installation
+# Installation
 
-### Prerequisites
+## Prerequisites
 
 - ROS 2 Humble
-- Python 3
+- Python 3.10 or later
+
+This is a standalone ROS 2 package, so it can be installed on the TurtleBot's Raspberry Pi or the remote PC. That said, the /analog_pins topic is published when the TurtleBot3 is running:
 - [ez-turtlebot3's modified OpenCR firmware](https://github.com/ez-turtlebot3/OpenCR)
     - Find these installation instructions in the repo's README.
 - [ez-turtlebot3's modified TurtleBot3 packages](https://github.com/ez-turtlebot3/turtlebot3)
     - Find these installation instructions in the repo's README.
 
-### Building from Source
+## Building from Source
 
 1. Clone this repository into your ROS 2 workspace:
 ```bash
 cd ~/turtlebot3_ws/src
-git clone https://github.com/yourusername/ez_analog_processor.git
+git clone https://github.com/ez-turtlebot3/ez_analog_processor.git
 ```
 
-2. Install dependencies:
-```bash
-cd ez_analog_processor
-./install_data_deps.sh
-```
-
-3. Build the package:
+2. Build the package:
 ```bash
 cd ~/turtlebot3_ws
-colcon build --packages-select ez_tb3_streamer
+colcon build --packages-select ez_analog_processor
+```
+
+3. Source the workspace:
+```bash
+source ~/turtlebot3_ws/install/setup.bash
 ```
 
 ### Configuration
@@ -45,7 +46,6 @@ The package uses two configuration files that need to be set up for your specifi
    - Pin mappings for your sensors
    - Calibration offsets
    - Update rates
-   - Streaming settings
    - To set up:
      ```bash
      cp config/sensors.example.yaml config/sensors.yaml
@@ -94,12 +94,7 @@ pre-commit run --all-files
 
 ## Dependencies
 
-- rclpy
-- std_msgs
-- diagnostic_msgs
-- python3-numpy
-- python3-yaml
-- turtlebot3_bringup
+All dependencies are managed through ROS 2's package system. See `package.xml` for a complete list of dependencies.
 
 ## License
 
