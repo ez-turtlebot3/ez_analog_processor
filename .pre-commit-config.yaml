@@ -19,3 +19,8 @@ repos:
     hooks:
     -   id: flake8
         additional_dependencies: [flake8-docstrings]
+        args:
+        - --max-line-length=99
+        - --extend-ignore=B902,C816,D100,D101,D102,D103,D104,D105,D106,D107,D203,D212,D404,I202
+        - --show-source
+        - --statistics
