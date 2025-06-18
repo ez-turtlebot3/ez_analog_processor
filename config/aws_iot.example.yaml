@@ -1,4 +1,4 @@
-aws_iot:
+analog_pin_data_publisher:
   ros__parameters:
     endpoint: "your-aws-endpoint.iot.region.amazonaws.com"  # Replace with your AWS IoT Core endpoint
     device_certificate: "/greengrass/v2/device.pem.crt"

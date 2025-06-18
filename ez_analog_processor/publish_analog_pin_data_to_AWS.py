@@ -62,36 +62,36 @@ class AnalogPinDataPublisher(Node):
         super().__init__("analog_pin_data_publisher")
 
         # Declare parameters
-        self.declare_parameter("aws_iot.endpoint", "")
+        self.declare_parameter("endpoint", "")
         self.declare_parameter(
-            "aws_iot.device_certificate", "/greengrass/v2/device.pem.crt"
+            "device_certificate", "/greengrass/v2/device.pem.crt"
         )
         self.declare_parameter(
-            "aws_iot.device_private_key", "/greengrass/v2/private.pem.key"
+            "device_private_key", "/greengrass/v2/private.pem.key"
         )
         self.declare_parameter(
-            "aws_iot.amazon_root_certificate", "/greengrass/v2/AmazonRootCA1.pem"
+            "amazon_root_certificate", "/greengrass/v2/AmazonRootCA1.pem"
         )
-        self.declare_parameter("aws_iot.mqtt_topic", "ez-tb/sensordata/analog")
-        self.declare_parameter("aws_iot.sensor_type", "Analog")
-        self.declare_parameter("aws_iot.mqtt_port", 8883)
-        self.declare_parameter("aws_iot.publish_interval", 1.0)
+        self.declare_parameter("mqtt_topic", "ez-tb/sensordata/analog")
+        self.declare_parameter("sensor_type", "Analog")
+        self.declare_parameter("mqtt_port", 8883)
+        self.declare_parameter("publish_interval", 1.0)
 
         # Get parameters
-        self.aws_endpoint = self.get_parameter("aws_iot.endpoint").value
+        self.aws_endpoint = self.get_parameter("endpoint").value
         if not self.aws_endpoint:
             self.get_logger().error("AWS IoT endpoint not set in parameters")
             raise ValueError("AWS IoT endpoint must be set in parameters")
 
-        self.device_certificate = self.get_parameter("aws_iot.device_certificate").value
-        self.device_private_key = self.get_parameter("aws_iot.device_private_key").value
+        self.device_certificate = self.get_parameter("device_certificate").value
+        self.device_private_key = self.get_parameter("device_private_key").value
         self.amazon_root_certificate = self.get_parameter(
-            "aws_iot.amazon_root_certificate"
+            "amazon_root_certificate"
         ).value
-        self.mqtt_topic = self.get_parameter("aws_iot.mqtt_topic").value
-        self.sensor_type = self.get_parameter("aws_iot.sensor_type").value
-        self.mqtt_port = self.get_parameter("aws_iot.mqtt_port").value
-        self.publish_interval = self.get_parameter("aws_iot.publish_interval").value
+        self.mqtt_topic = self.get_parameter("mqtt_topic").value
+        self.sensor_type = self.get_parameter("sensor_type").value
+        self.mqtt_port = self.get_parameter("mqtt_port").value
+        self.publish_interval = self.get_parameter("publish_interval").value
 
         # Initialize MQTT connection
         self.mqtt_connection = None

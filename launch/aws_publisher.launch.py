@@ -9,24 +9,16 @@ def generate_launch_description():
     pkg_share = get_package_share_directory("ez_analog_processor")
 
     # Define config file paths
-    sensors_config = os.path.join(pkg_share, "config", "sensors.yaml")
     aws_config = os.path.join(pkg_share, "config", "aws_iot.yaml")
 
     return LaunchDescription([
-        # Launch the analog processor node first
-        Node(
-            package="ez_analog_processor",
-            executable="analog_processor",
-            name="analog_processor",
-            parameters=[sensors_config],
-            output="screen",
-        ),
+        # TODO: Launch the analog processor node first?
 
         # Launch the AWS publisher node
         Node(
             package="ez_analog_processor",
             executable="publish_to_AWS",
-            name="aws_publisher",
+            name="analog_pin_data_publisher",
             parameters=[aws_config],
             output="screen",
         ),
