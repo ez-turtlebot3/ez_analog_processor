@@ -105,7 +105,7 @@ class AnalogPinDataPublisher(Node):
         self.get_logger().info("Analog pin data publisher node initialized")
 
     def setup_mqtt(self):
-        """Sets up the MQTT connection to AWS IoT Core."""
+        """Set up the MQTT connection to AWS IoT Core."""
         try:
             self.mqtt_connection = mqtt_connection_builder.mtls_from_path(
                 endpoint=self.aws_endpoint,
@@ -135,7 +135,7 @@ class AnalogPinDataPublisher(Node):
             raise
 
     def sensor_callback(self, msg):
-        """Callback for processing sensor data and publishing to AWS IoT Core."""
+        """Process sensor data and publish to AWS IoT Core."""
         try:
             utc_datetime = datetime.datetime.now()
             message_json = json.dumps(
@@ -182,7 +182,7 @@ class AnalogPinDataPublisher(Node):
         )
 
     def destroy_node(self):
-        """Cleanup when node is destroyed."""
+        """Clean up when node is destroyed."""
         if self.mqtt_connection:
             self.get_logger().info("Disconnecting MQTT...")
             disconnect_future = self.mqtt_connection.disconnect()
@@ -199,11 +199,8 @@ def main(args=None):
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
     finally:
-        if "node" in locals():
-            node.destroy_node()
+        node.destroy_node()
         rclpy.shutdown()
 
 

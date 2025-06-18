@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = "ez_tb3_streamer"
+package_name = "ez_analog_processor"
 
 setup(
     name=package_name,
@@ -21,13 +21,13 @@ setup(
     zip_safe=True,
     maintainer="trav",
     maintainer_email="travis.mendoza@eyezense.com",
-    description="A package for processing and streaming TurtleBot3 sensor data",
+    description="A package for processing and publishing TurtleBot3 sensor data",
     license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "analog_processor = ez_tb3_streamer.analog_processor:main",
-            "publish_to_AWS = ez_tb3_streamer.publish_analog_pin_data_to_AWS:main",
+            "analog_processor = ez_analog_processor.analog_processor:main",
+            "publish_to_AWS = ez_analog_processor.publish_analog_pin_data_to_AWS:main",
         ],
     },
 )
