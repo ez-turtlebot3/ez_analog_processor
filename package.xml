@@ -3,7 +3,7 @@
 <package format="3">
   <name>ez_analog_processor</name>
   <version>0.1.0</version>
-  <description>A package for processing and publishing TurtleBot3 sensor data</description>
+  <description>A package for processing TurtleBot3 sensor data</description>
   <maintainer email="travis.mendoza@eyezense.com">trav</maintainer>
   <license>MIT</license>
 
