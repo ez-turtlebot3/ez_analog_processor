@@ -1,6 +1,4 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
@@ -10,23 +8,26 @@ def generate_launch_description():
     # Get the package share directory
     pkg_share = get_package_share_directory("ez_analog_processor")
 
-    # Declare the launch arguments
-    aws_endpoint = LaunchConfiguration("aws_endpoint")
+    # Define config file paths
+    sensors_config = os.path.join(pkg_share, "config", "sensors.yaml")
+    aws_config = os.path.join(pkg_share, "config", "aws_iot.yaml")
 
-    # Create the launch description
     return LaunchDescription([
-        # Declare launch arguments
-        DeclareLaunchArgument("aws_endpoint", description="AWS IoT Core endpoint"),
+        # Launch the analog processor node first
+        Node(
+            package="ez_analog_processor",
+            executable="analog_processor",
+            name="analog_processor",
+            parameters=[sensors_config],
+            output="screen",
+        ),
+
         # Launch the AWS publisher node
         Node(
             package="ez_analog_processor",
             executable="publish_to_AWS",
             name="aws_publisher",
-            parameters=[
-                os.path.join(pkg_share, "config", "sensors.yaml"),
-                os.path.join(pkg_share, "config", "aws_iot.yaml"),
-                {"aws_iot.endpoint": aws_endpoint},
-            ],
+            parameters=[aws_config],
             output="screen",
         ),
     ])
