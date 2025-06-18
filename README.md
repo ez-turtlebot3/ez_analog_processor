@@ -33,12 +33,17 @@ cd ~/turtlebot3_ws
 colcon build --packages-select ez_analog_processor
 ```
 
-3. Source the workspace:
+3. Install Python dependencies:
+```bash
+pip3 install -r src/ez_analog_processor/requirements.txt
+```
+
+4. Source the workspace:
 ```bash
 source ~/turtlebot3_ws/install/setup.bash
 ```
 
-### Configuration
+## Configuration
 
 The package uses two configuration files that need to be set up for your specific environment:
 
@@ -64,7 +69,30 @@ The package uses two configuration files that need to be set up for your specifi
 
 Both configuration files are gitignored to prevent accidental commits of user-specific settings. The example files provide templates with default values that you can modify for your setup.
 
-### Setting up Pre-commit Hooks
+## Dependencies
+
+This package has dependencies managed through multiple systems:
+
+* ROS 2 dependencies
+  * Managed through `package.xml`
+  * Installed automatically by the ROS 2 build system
+
+* Python dependencies
+  * Managed through `requirements.txt`
+  * Must be installed manually with: `pip3 install -r requirements.txt`
+
+* Development dependencies for testing and code quality
+  - `pytest` - Python testing framework
+  - `pre-commit` - Git hooks for code quality
+  - Install with: `pip3 install pytest pre-commit`
+
+See `package.xml` and `requirements.txt` for complete dependency specifications.
+
+# Usage
+
+[Add usage instructions here]
+
+# Setting up Pre-commit Hooks
 
 This repository uses pre-commit hooks to ensure code quality and prevent accidental commits of sensitive information. To set up the pre-commit hooks:
 
@@ -87,19 +115,10 @@ To manually run the hooks on all files:
 ```bash
 pre-commit run --all-files
 ```
-
-## Usage
-
-[Add usage instructions here]
-
-## Dependencies
-
-All dependencies are managed through ROS 2's package system. See `package.xml` for a complete list of dependencies.
-
-## License
+# License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
+# Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

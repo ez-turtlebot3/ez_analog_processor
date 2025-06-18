@@ -14,10 +14,6 @@ setup(
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
     ],
-    install_requires=[
-        "setuptools>=61.0",
-        "awsiotsdk",  # For AWS IoT Core integration
-    ],
     zip_safe=True,
     maintainer="trav",
     maintainer_email="travis.mendoza@eyezense.com",
