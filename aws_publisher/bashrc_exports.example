@@ -1,0 +1,6 @@
+export AWS_IOT_ENDPOINT=your-aws-iot-endpoint
+export DEVICE_CERTIFICATE=/greengrass/v2/device.pem.crt
+export DEVICE_PRIVATE_KEY=/greengrass/v2/private.pem.key
+export AMAZON_ROOT_CERTIFICATE=/greengrass/v2/AmazonRootCA1.pem
+export MQTT_TOPIC=ez-tb/sensordata/analog
+export SENSOR_TYPE=Analog

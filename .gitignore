@@ -47,3 +47,6 @@ Thumbs.db
 # Configuration files
 config/aws_iot.yaml
 config/sensors.yaml
+
+# Secrets folder
+.secrets/

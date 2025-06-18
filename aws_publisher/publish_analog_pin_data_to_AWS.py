@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 AWS_IOT_ENDPOINT = os.getenv('AWS_IOT_ENDPOINT')
 if not AWS_IOT_ENDPOINT:
     logger.error(
-        "AWS_IOT_ENDPOINT environment variable is not set. Please set it in your .env.pi file."
+        "AWS_IOT_ENDPOINT variable is not sourced in this environment."
         )
     sys.exit(1)
 
