@@ -15,7 +15,7 @@ setup(
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
     ],
     install_requires=[
-        "setuptools",
+        "setuptools>=61.0",
         "awsiotsdk",  # For AWS IoT Core integration
     ],
     zip_safe=True,
@@ -30,4 +30,5 @@ setup(
             "publish_to_AWS = ez_analog_processor.publish_analog_pin_data_to_AWS:main",
         ],
     },
+    python_requires=">=3.8",
 )

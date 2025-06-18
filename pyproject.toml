@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ez_analog_processor"
+version = "0.1.0"
+description = "A package for processing and publishing TurtleBot3 sensor data"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "trav", email = "travis.mendoza@eyezense.com"}
+]
+maintainers = [
+    {name = "trav", email = "travis.mendoza@eyezense.com"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "setuptools>=61.0",
+    "awsiotsdk",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[project.scripts]
+analog_processor = "ez_analog_processor.analog_processor:main"
+publish_to_AWS = "ez_analog_processor.publish_analog_pin_data_to_AWS:main"
+
+[tool.setuptools.packages.find]
+exclude = ["test*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.launch.py"]
