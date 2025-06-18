@@ -33,8 +33,3 @@ analog_processor:
     temperature_offset: -12.0
     humidity_offset: -17.5
     update_rate: 4.0   # Update frequency in Hz (2.0 = twice per second)
-
-streaming:
-  ros__parameters:
-    processed_analog:
-      port: 5003

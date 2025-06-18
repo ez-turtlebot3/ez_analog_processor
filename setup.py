@@ -14,7 +14,10 @@ setup(
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
     ],
-    install_requires=["setuptools"],
+    install_requires=[
+        "setuptools",
+        "awsiotsdk",  # For AWS IoT Core integration
+    ],
     zip_safe=True,
     maintainer="trav",
     maintainer_email="travis.mendoza@eyezense.com",
@@ -23,9 +26,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "stream_bits = ez_tb3_streamer.stream_bits:main",
             "analog_processor = ez_tb3_streamer.analog_processor:main",
-            "stream_processed = ez_tb3_streamer.stream_processed_analog:main",
             "publish_to_AWS = ez_tb3_streamer.publish_analog_pin_data_to_AWS:main",
         ],
     },
