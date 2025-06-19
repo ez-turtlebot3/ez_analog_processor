@@ -6,9 +6,9 @@ This ROS 2 package sits as the cherry on top of two other ROS 2 packages:
 
 ez_analog_processor then takes /analog_pins data as input, processes that data, and publishes that processed data to several new topics.
 
-# Installation
+# ROS Setup
 
-## Prerequisites
+## ROS package prerequisites
 
 - ROS 2 Humble
 - Python 3.10 or later
@@ -33,43 +33,54 @@ cd ~/turtlebot3_ws
 colcon build --packages-select ez_analog_processor
 ```
 
-3. Install Python dependencies:
-```bash
-pip3 install -r src/ez_analog_processor/requirements.txt
-```
-
-4. Source the workspace:
+3. Source the workspace:
 ```bash
 source ~/turtlebot3_ws/install/setup.bash
 ```
 
-## Configuration
+## ROS Configuration
 
-The package uses two configuration files that need to be set up for your specific environment:
+Set up `config/sensors.yaml` for your hardware. This file is gitignored to prevent accidental commits of user-specific settings. The example files provide templates with default values that you can modify for your setup.
 
-1. `config/sensors.yaml`: Contains sensor-specific configuration
-   - Pin mappings for your sensors
-   - Calibration offsets
-   - Update rates
-   - To set up:
-     ```bash
-     cp config/sensors.example.yaml config/sensors.yaml
-     # Edit config/sensors.yaml with your sensor settings
-     ```
+## ROS use
 
-2. `config/aws_iot.yaml`: Contains AWS IoT Core configuration
-   - AWS IoT Core endpoint
-   - Certificate paths
-   - MQTT settings
-   - To set up:
-     ```bash
-     cp config/aws_iot.example.yaml config/aws_iot.yaml
-     # Edit config/aws_iot.yaml with your AWS IoT Core settings
-     ```
+1. To start the node: `ros2 launch ez_analog_processor analog_processor.launch.py`
+2. That's it! Maybe set up a live plot with [PlotJuggler](https://github.com/facontidavide/PlotJuggler).
 
-Both configuration files are gitignored to prevent accidental commits of user-specific settings. The example files provide templates with default values that you can modify for your setup.
+# AWS IoT Setup
 
-## Dependencies
+## AWS Prerequisites
+
+* Someone on your team will have to set up your device on AWS IoT, on AWS.
+* That someone will need to give you your
+  - AWS IoT endpoint
+  - AWS IoT certificates
+  - AWS IoT device private key
+  - Names for the MQTT topic and sensor type
+* Include these things, or filepaths to them, in your bashrc file. Example export statements can be found in [bashrc_exports.example](aws_publisher/bashrc_exports.example)
+
+## Create the environment for the AWS publisher
+
+Publishing to AWS IoT requires the `awsiotsdk` Python package, which I could only install to my Raspberry Pi when I installed it in a virtual environment. The AWS IoT functionality and its virtual environment are kept separate from the rest of the ROS package. Follow these steps to set them up:
+
+1. Complete the ROS Setup.
+2. Create the virtual environment and install Python requirements inside.
+```
+cd ~/turtlebot3_ws
+python -m venv .venv
+source .venv/bin/activate
+pip3 install -r src/ez_analog_processor/requirements.txt
+```
+3. You might have to source the workspace again, I'm not sure about this one.
+`source ~/turtlebot3_ws/install/setup.bash`
+
+## AWS use
+1. Source the virtual environment if you don't have it active already
+`source ~/turtlebot3_ws/.venv/bin/activate`
+2. Run the script
+`python3 ~/turtlebot3_ws/src/ez_analog_processor/aws_publisher/publish_analog_pins_data_to_AWS.py`
+
+# Dependencies
 
 This package has dependencies managed through multiple systems:
 
@@ -87,10 +98,6 @@ This package has dependencies managed through multiple systems:
   - Install with: `pip3 install pytest pre-commit`
 
 See `package.xml` and `requirements.txt` for complete dependency specifications.
-
-# Usage
-
-[Add usage instructions here]
 
 # Setting up Pre-commit Hooks
 
