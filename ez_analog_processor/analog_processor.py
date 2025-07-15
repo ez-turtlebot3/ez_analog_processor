@@ -20,6 +20,7 @@ class AnalogProcessor(Node):
         self.declare_parameters(
             namespace='',
             parameters=[
+                ('board_id', 1),
                 ('sensors.temp.pin', 0),
                 ('sensors.temp.enabled', True),
                 ('sensors.temp.unit', '°C'),
@@ -49,9 +50,9 @@ class AnalogProcessor(Node):
                 ('publish_float_array', True),
                 ('publish_mean_analog', True),
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
-                ('temperature_offset', 0.0),
-                ('humidity_offset', 0.0),
-                ('update_rate', 1.0)      # Default update rate of 1.0 Hz
+                ('update_rate', 1.0),      # Default update rate of 1.0 Hz
+                ('temp_coefficients', [1.0] * 6),  # 3 boards × 2 coefficients each
+                ('rh_coefficients', [1.0] * 6)
             ]
         )
 
@@ -124,9 +125,12 @@ class AnalogProcessor(Node):
         # Get voltage offset parameter
         self.voltage_offset = self.get_parameter('voltage_offset').value
 
-        # Get temperature and humidity offset parameters
-        self.temperature_offset = self.get_parameter('temperature_offset').value
-        self.humidity_offset = self.get_parameter('humidity_offset').value
+        # Get board ID and temperature/humidity coefficients
+        self.board_id = self.get_parameter('board_id').value
+        self.temp_coefficients = (self.get_parameter('temp_coefficients')
+                                  .get_parameter_value().double_array_value)
+        self.rh_coefficients = (self.get_parameter('rh_coefficients')
+                                .get_parameter_value().double_array_value)
 
         # Get update rate parameter
         self.update_rate = self.get_parameter('update_rate').value
@@ -156,7 +160,9 @@ class AnalogProcessor(Node):
             if pin < len(msg.data):
                 self.sensor_buffers[pin].append(msg.data[pin])
 
-        self.get_logger().debug(f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}')
+        self.get_logger().debug(
+            f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}'
+        )
 
     def process_and_publish(self):
         """Process buffered data and publish at configured rate."""
@@ -197,15 +203,13 @@ class AnalogProcessor(Node):
                 voltage = float(raw_value) * (3.3/4095.0) + self.voltage_offset
 
                 # Apply specific conversion if needed
-                if sensor["conversion"] == "voltage":
+                conversion_type = sensor["conversion"]
+                if conversion_type == "voltage":
                     # Keep as voltage
                     value = voltage
-                elif sensor["conversion"] == "humidity":
+                elif conversion_type == "humidity" or conversion_type == "temperature":
                     # RH (%) = -12.5 + 125 * V/3.3  => Equation from sensor documentation
-                    value = (-12.5 + self.humidity_offset) + 125 * voltage / 3.3
-                elif sensor["conversion"] == "temperature":
-                    # T (°C) = -66.875 + 218.75 * V/3.3  => Equation from sensor documentation
-                    value = (-66.875 + self.temperature_offset) + 218.75 * voltage / 3.3
+                    value = self.calc_env_var(voltage, conversion_type)
                 else:
                     # Default to voltage
                     value = voltage
@@ -227,11 +231,50 @@ class AnalogProcessor(Node):
             self.publish_float_array_msg(float_array_values)
 
         # Log information
-        samples_count = len(next(iter(self.sensor_buffers.values()))) if self.sensor_buffers else 0
+        samples_count = (len(next(iter(self.sensor_buffers.values())))
+                         if self.sensor_buffers else 0)
         self.get_logger().info(f'Published processed data from {samples_count} samples')
 
         # Clear the buffer for the next cycle
         self.data_buffer = []
+
+    def calc_env_var(self, voltage, conversion_type):
+        """Calculate humidity or temperature from voltage.
+
+        Uses equations determined from experiments.
+        """
+        # extract coefficients corresponding to sensor board id
+        # n_rows = 3  # 3 possible sensors
+        n_cols = 2  # 2 coefficients for linear polynomial
+        list_index = self.board_id - 1
+        match conversion_type:
+            case "humidity":
+                coeffs_list = self.rh_coefficients
+            case "temperature":
+                coeffs_list = self.temp_coefficients
+            case _:
+                self.get_logger().warn(
+                    f"Invalid conversion type: {conversion_type}. No coefficients loaded."
+                )
+                coeffs_list = []  # I'm not sure what to put for this case
+
+        if 0 <= list_index < len(coeffs_list) / n_cols:  # Check bounds
+            # Calculate the starting index of the desired row in the flat list
+            start_index = list_index * n_cols
+            # Slice the list to get the coefficients for the selected sensor
+            c = coeffs_list[start_index:(start_index + n_cols)]
+
+            self.get_logger().info(
+                f"Using {conversion_type} coefficients for sensor {self.board_id}: {c}"
+            )
+
+        else:
+            self.get_logger().warn(
+                f"Invalid sensor ID: {self.board_id}. No coefficients loaded."
+            )
+            c = [0, 0]
+
+        return c[0] * voltage + c[1]
 
     def publish_diagnostic_array(self, processed_values):
         """Publish data as DiagnosticArray with names and units."""
