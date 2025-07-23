@@ -10,7 +10,8 @@ analog_processor:
       5: 'ground'
     voltage_offset: 0.0
     update_rate: 4.0   # Update frequency in Hz (2.0 = twice per second)
-    moving_buffer: 35
+    moving_buffer: 35  # Number of points to include in moving buffer
+    trimmean_percent: 50  # Percent of points to take from middle of moving buffer
     # board1[slope,intercept], board2[slope,intercept], board3[slope,intercept]
     temp_coefficients: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     rh_coefficients: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
