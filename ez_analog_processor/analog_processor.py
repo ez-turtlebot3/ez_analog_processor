@@ -1,63 +1,42 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt16MultiArray, Float32MultiArray
-from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
+from std_msgs.msg import UInt16MultiArray
 import numpy as np
 from collections import deque
+from ez_interfaces.msg import ChemSensor
 
 
 class AnalogProcessor(Node):
     def __init__(self):
         super().__init__('analog_processor')
 
-        # Data buffer to store incoming measurements
-        self.data_buffer = []
-
-        # Moving buffer for each sensor (35 points)
-        self.sensor_buffers = {}
-
         # Define sensor configurations with default values
         self.declare_parameters(
             namespace='',
             parameters=[
                 ('board_id', 1),
-                ('sensors.temp.pin', 0),
-                ('sensors.temp.enabled', True),
-                ('sensors.temp.unit', '°C'),
-                ('sensors.temp.conversion', 'temperature'),
-
-                ('sensors.rh.pin', 1),
-                ('sensors.rh.enabled', True),
-                ('sensors.rh.unit', '%'),
-                ('sensors.rh.conversion', 'humidity'),
-
-                ('sensors.s1.pin', 2),
-                ('sensors.s1.enabled', True),
-                ('sensors.s1.unit', 'V'),
-                ('sensors.s1.conversion', 'voltage'),
-
-                ('sensors.s2.pin', 3),
-                ('sensors.s2.enabled', True),
-                ('sensors.s2.unit', 'V'),
-                ('sensors.s2.conversion', 'voltage'),
-
-                ('sensors.s3.pin', 4),
-                ('sensors.s3.enabled', True),
-                ('sensors.s3.unit', 'V'),
-                ('sensors.s3.conversion', 'voltage'),
-
-                ('publish_diagnostic_array', True),
-                ('publish_float_array', True),
-                ('publish_mean_analog', True),
+                ('pin.0', 'temp'),
+                ('pin.1', 'RH'),
+                ('pin.2', 'NO2'),
+                ('pin.3', 'NH3'),
+                ('pin.4', 'CO'),
+                ('pin.5', 'ground'),
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
-                ('update_rate', 1.0),      # Default update rate of 1.0 Hz
+                ('update_rate', 1.0),  # Default update rate of 1.0 Hz
+                ('moving_buffer', 35),
                 ('temp_coefficients', [1.0] * 6),  # 3 boards × 2 coefficients each
                 ('rh_coefficients', [1.0] * 6)
             ]
         )
 
+        # Create list of available pins
+        self.pins = [0, 1, 2, 3, 4, 5]
+
         # Load configuration
         self.load_config()
+
+        # Create moving buffers for each pin
+        self.sensor_buffers = {pin: deque(maxlen=self.moving_buffer) for pin in self.pins}
 
         # Subscribe to raw analog pins data
         self.subscription = self.create_subscription(
@@ -66,22 +45,10 @@ class AnalogProcessor(Node):
             self.collect_analog_data,
             10)
 
-        # Publisher for mean analog data (raw averaged values)
-        self.mean_publisher = self.create_publisher(
-            UInt16MultiArray,
-            '/mean_analog',
-            10)
-
-        # Publisher for processed data as Float32MultiArray
-        self.float_publisher = self.create_publisher(
-            Float32MultiArray,
-            '/processed_analog',
-            10)
-
-        # Publisher for diagnostic array (includes names and units)
-        self.diag_publisher = self.create_publisher(
-            DiagnosticArray,
-            '/sensor_readings',
+        # Publisher for processed data as ChemSensor message
+        self.publisher = self.create_publisher(
+            ChemSensor,
+            '/chem_sensor',
             10)
 
         # Create timer for publishing using the configured update rate
@@ -91,36 +58,14 @@ class AnalogProcessor(Node):
         self.get_logger().info(
             f'Analog processor node initialized - averaging data at {self.update_rate} Hz'
         )
-        self.get_logger().info(
-            f'Active sensors: {[s["name"] for s in self.sensors.values() if s["enabled"]]}'
-        )
-        self.get_logger().info(f'Voltage offset: {self.voltage_offset}V')
 
     def load_config(self):
         """Load sensor configuration from parameters."""
-        self.sensors = {}
-
-        # Create sensor configurations from parameters
-        for sensor in ['temp', 'rh', 's1', 's2', 's3']:
-            pin = self.get_parameter(f'sensors.{sensor}.pin').value
-            enabled = self.get_parameter(f'sensors.{sensor}.enabled').value
-            unit = self.get_parameter(f'sensors.{sensor}.unit').value
-            conversion = self.get_parameter(f'sensors.{sensor}.conversion').value
-
-            self.sensors[pin] = {
-                "name": sensor,
-                "enabled": enabled,
-                "unit": unit,
-                "conversion": conversion,
-                "pin": pin
-            }
-
-            # Initialize moving buffer for each enabled sensor
-            if enabled:
-                self.sensor_buffers[pin] = deque(maxlen=35)
-
-        # Filter to only enabled sensors and sort by pin
-        self.enabled_sensors = {k: v for k, v in self.sensors.items() if v["enabled"]}
+        # Map pins to sensors
+        self.pin_map = {}
+        for pin in self.pins:
+            pin_name = f"pin.{pin}"
+            self.pin_map[pin] = self.get_parameter(pin_name).value
 
         # Get voltage offset parameter
         self.voltage_offset = self.get_parameter('voltage_offset').value
@@ -132,111 +77,79 @@ class AnalogProcessor(Node):
         self.rh_coefficients = (self.get_parameter('rh_coefficients')
                                 .get_parameter_value().double_array_value)
 
-        # Get update rate parameter
+        # Get update rate and moving buffer parameters
         self.update_rate = self.get_parameter('update_rate').value
-
-        # Check for publishing options
-        self.publish_diagnostic = self.get_parameter('publish_diagnostic_array').value
-        self.publish_float_array = self.get_parameter('publish_float_array').value
-        self.publish_mean_analog = self.get_parameter('publish_mean_analog').value
-
-    def calculate_trimmean(self, values):
-        """Calculate the trimmean of values, using middle 15 values if 35 points available."""
-        if len(values) < 35:
-            return np.mean(values)
-
-        sorted_values = np.sort(values)
-        # Take middle 15 values (indices 10-24)
-        middle_values = sorted_values[10:25]
-        return np.mean(middle_values)
+        self.moving_buffer = self.get_parameter('moving_buffer').value
 
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer."""
-        # Add new data to the buffer
-        self.data_buffer.append(list(msg.data))
-
         # Update moving buffers for each sensor
-        for pin in self.enabled_sensors:
+        for pin in self.pins:
             if pin < len(msg.data):
                 self.sensor_buffers[pin].append(msg.data[pin])
 
-        self.get_logger().debug(
-            f'Received data: {msg.data}, buffer size: {len(self.data_buffer)}'
-        )
+    def calculate_trimmean(self, values):
+        """Calculate the trimmean of values in the buffer.
+
+        Uses middle half of values once buffer is full.
+        """
+        # Return mean value if buffer is not full
+        if len(values) < self.moving_buffer:
+            return np.mean(values)
+
+        # Sort values
+        sorted_values = np.sort(values)
+
+        # Determine slice indices
+        first = round(self.moving_buffer/4)
+        last = self.moving_buffer - first
+        # Take middle values
+        middle_values = sorted_values[first:last]
+        return np.mean(middle_values)
 
     def process_and_publish(self):
         """Process buffered data and publish at configured rate."""
-        if not self.data_buffer:
-            self.get_logger().warn(
-                f'No data collected in the last {1.0/self.update_rate} seconds'
-            )
-            return
+        msg = ChemSensor()
 
-        # Convert buffer to numpy array for easier averaging
-        data_array = np.array(self.data_buffer)
+        # Process data one pin at a time
+        for pin in self.pins:
+            # Use pin map to determine which sensor is connected to this pin
+            sensor = self.pin_map[pin]
 
-        # Calculate average for each of the analog pins
-        avg_values = np.mean(data_array, axis=0)
+            # Do nothing if pin is connected to ground, otherwise...
+            if sensor != "ground":
+                # Create reference to the part of the ChemSensor 'msg' for this sensor
+                sensor_msg = getattr(msg, sensor)
 
-        # Publish mean analog values first (raw averaged values as integers)
-        if self.publish_mean_analog:
-            # Round values to integers for UInt16MultiArray
-            int_avg_values = [int(round(x)) for x in avg_values]
+                # Calculate mean of recorded bits and convert to voltage
+                mean_bits = self.calculate_trimmean(self.sensor_buffers[pin])
+                voltage = mean_bits * (3.3/4095.0) + self.voltage_offset
 
-            # Create and publish UInt16MultiArray message
-            mean_msg = UInt16MultiArray()
-            mean_msg.data = int_avg_values
-            self.mean_publisher.publish(mean_msg)
-            self.get_logger().debug(f'Published mean analog data: {int_avg_values}')
+                # Assign fields of ChemSensor msg depending on sensor type
+                match sensor:
+                    case "temp" | "rh":
+                        sensor_msg.base.mean_bits = mean_bits
+                        sensor_msg.base.voltage = voltage
+                        sensor_msg.base.pin = pin
 
-        # Create a dictionary to store processed values by sensor
-        processed_values = {}
-        float_array_values = []
+                        # Convert units for environmental sensors
+                        match sensor:
+                            case "temp":
+                                sensor_msg.celsius = self.calc_env_var(voltage, "temperature")
+                            case "rh":
+                                sensor_msg.percent = self.calc_env_var(voltage, "humidity")
+                    case _:
+                        sensor_msg.mean_bits = mean_bits
+                        sensor_msg.voltage = voltage
+                        sensor_msg.pin = pin
 
-        # Process each sensor according to its configuration
-        for pin, sensor in self.enabled_sensors.items():
-            if pin < len(avg_values):  # Ensure pin is within range of data
-                # Get the trimmean of the moving buffer
-                raw_value = self.calculate_trimmean(list(self.sensor_buffers[pin]))
+        # Publish ChemSensor msg
+        self.publisher.publish(msg)
 
-                # Convert to voltage first (0-4095 ADC to 0-3.3V) with offset
-                voltage = float(raw_value) * (3.3/4095.0) + self.voltage_offset
-
-                # Apply specific conversion if needed
-                conversion_type = sensor["conversion"]
-                if conversion_type == "voltage":
-                    # Keep as voltage
-                    value = voltage
-                elif conversion_type == "humidity" or conversion_type == "temperature":
-                    # RH (%) = -12.5 + 125 * V/3.3  => Equation from sensor documentation
-                    value = self.calc_env_var(voltage, conversion_type)
-                else:
-                    # Default to voltage
-                    value = voltage
-
-                processed_values[sensor["name"]] = {
-                    "value": value,
-                    "unit": sensor["unit"]
-                }
-
-                # Also add to flat array for the Float32MultiArray message
-                float_array_values.append(value)
-
-        # Publish diagnostic array with named values
-        if self.publish_diagnostic:
-            self.publish_diagnostic_array(processed_values)
-
-        # Publish float array for backward compatibility or simple plotting
-        if self.publish_float_array:
-            self.publish_float_array_msg(float_array_values)
-
-        # Log information
+        # Log publishing information
         samples_count = (len(next(iter(self.sensor_buffers.values())))
                          if self.sensor_buffers else 0)
         self.get_logger().info(f'Published processed data from {samples_count} samples')
-
-        # Clear the buffer for the next cycle
-        self.data_buffer = []
 
     def calc_env_var(self, voltage, conversion_type):
         """Calculate humidity or temperature from voltage.
@@ -275,33 +188,6 @@ class AnalogProcessor(Node):
             c = [0, 0]
 
         return c[0] * voltage + c[1]
-
-    def publish_diagnostic_array(self, processed_values):
-        """Publish data as DiagnosticArray with names and units."""
-        diag_array = DiagnosticArray()
-        diag_array.header.stamp = self.get_clock().now().to_msg()
-
-        # Create a status message for environmental sensors
-        status = DiagnosticStatus()
-        status.name = "Environmental Sensors"
-        status.level = DiagnosticStatus.OK
-        status.message = "Sensor readings"
-
-        # Add each sensor reading as a key-value pair
-        for sensor_name, data in processed_values.items():
-            key_value = KeyValue()
-            key_value.key = f"{sensor_name} ({data['unit']})"
-            key_value.value = f"{data['value']:.2f}"
-            status.values.append(key_value)
-
-        diag_array.status.append(status)
-        self.diag_publisher.publish(diag_array)
-
-    def publish_float_array_msg(self, values):
-        """Publish processed values as Float32MultiArray."""
-        msg = Float32MultiArray()
-        msg.data = values
-        self.float_publisher.publish(msg)
 
 
 def main(args=None):

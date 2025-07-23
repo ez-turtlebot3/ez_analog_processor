@@ -1,37 +1,16 @@
 analog_processor:
   ros__parameters:
     board_id: 1
-    sensors:
-      s3:
-        pin: 4
-        enabled: true
-        unit: "V"
-        conversion: "voltage"
-      s1:
-        pin: 2
-        enabled: true
-        unit: "V"
-        conversion: "voltage"
-      s2:
-        pin: 3
-        enabled: true
-        unit: "V"
-        conversion: "voltage"
-      rh:
-        pin: 1
-        enabled: true
-        unit: "%"
-        conversion: "humidity"
-      temp:
-        pin: 0
-        enabled: true
-        unit: "°C"
-        conversion: "temperature"
-    publish_diagnostic_array: true
-    publish_float_array: true
-    publish_mean_analog: true
+    pins:
+      0: 'temp'
+      1: 'rh'
+      2: 's1'
+      3: 's2'
+      4: 's3'
+      5: 'ground'
     voltage_offset: 0.0
     update_rate: 4.0   # Update frequency in Hz (2.0 = twice per second)
+    moving_buffer: 35
     # board1[slope,intercept], board2[slope,intercept], board3[slope,intercept]
     temp_coefficients: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     rh_coefficients: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
