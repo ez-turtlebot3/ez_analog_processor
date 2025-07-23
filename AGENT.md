@@ -1,10 +1,11 @@
 # Agent Instructions for ROS 2 Analog Data Processor
 
 ## Build/Test Commands
-- `colcon build` - Build all packages in workspace
-- `colcon build --packages-select <package_name>` - Build single package
+These commands must be entered from the top-level directory of the workspace, which is `$TB3_WS`
+- `colcon build` - Build all packages in workspace. Can be time-intensive if executed on the Raspberry Pi.
+- `colcon build --packages-select <ez_analog_processor>` - Build just this package
 - `colcon test` - Run all tests
-- `colcon test --packages-select <package_name>` - Run tests for single package
+- `colcon test --packages-select <ez_analog_processor>` - Run tests for just this package
 - `python3 -m pytest test/` - Run pytest tests in a package directory
 - `ament_flake8 .` - Check PEP8 style compliance
 - `ament_pep257 .` - Check docstring compliance
