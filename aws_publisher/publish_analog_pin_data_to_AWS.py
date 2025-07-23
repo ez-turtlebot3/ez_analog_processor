@@ -279,7 +279,7 @@ class AnalogPinDataPublisher(Node):
                 self.last_message_time = timestamp
                 self.get_logger().info(
                     f"Published message {self.message_count} with "
-                    f"{len(msg.data)} sensor readings"
+                    f"{len(sensor_readings)} sensor readings"
                     )
             else:
                 self.get_logger().error("Failed to publish message to AWS IoT Core")
