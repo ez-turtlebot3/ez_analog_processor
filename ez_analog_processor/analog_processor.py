@@ -7,6 +7,18 @@ from ez_interfaces.msg import ChemSensor
 
 
 class AnalogProcessor(Node):
+    """ROS 2 node for processing analog sensor data.
+
+    Collects raw ADC values, applies statistical smoothing (trimmean),
+    converts to physical units (temperature, humidity, voltage), and
+    publishes as ChemSensor messages.
+    """
+
+    # Hardware constants
+    ADC_MAX_VALUE = 4095
+    ADC_VOLTAGE_RANGE = 3.3
+    PINS = [0, 1, 2, 3, 4, 5]
+
     def __init__(self):
         super().__init__('analog_processor')
 
@@ -16,27 +28,25 @@ class AnalogProcessor(Node):
             parameters=[
                 ('board_id', 1),
                 ('pin.0', 'temp'),
-                ('pin.1', 'RH'),
-                ('pin.2', 'NO2'),
-                ('pin.3', 'NH3'),
-                ('pin.4', 'CO'),
+                ('pin.1', 'rh'),
+                ('pin.2', 's1'),
+                ('pin.3', 's2'),
+                ('pin.4', 's3'),
                 ('pin.5', 'ground'),
                 ('voltage_offset', 0.0),  # Default voltage offset of 0.0V
                 ('update_rate', 1.0),  # Default update rate of 1.0 Hz
                 ('moving_buffer', 35),
+                ('trimmean_percent', 50),
                 ('temp_coefficients', [1.0] * 6),  # 3 boards × 2 coefficients each
                 ('rh_coefficients', [1.0] * 6)
             ]
         )
 
-        # Create list of available pins
-        self.pins = [0, 1, 2, 3, 4, 5]
-
         # Load configuration
         self.load_config()
 
         # Create moving buffers for each pin
-        self.sensor_buffers = {pin: deque(maxlen=self.moving_buffer) for pin in self.pins}
+        self.sensor_buffers = {pin: deque(maxlen=self.moving_buffer) for pin in self.PINS}
 
         # Subscribe to raw analog pins data
         self.subscription = self.create_subscription(
@@ -63,7 +73,7 @@ class AnalogProcessor(Node):
         """Load sensor configuration from parameters."""
         # Map pins to sensors
         self.pin_map = {}
-        for pin in self.pins:
+        for pin in self.PINS:
             pin_name = f"pin.{pin}"
             self.pin_map[pin] = self.get_parameter(pin_name).value
 
@@ -80,11 +90,12 @@ class AnalogProcessor(Node):
         # Get update rate and moving buffer parameters
         self.update_rate = self.get_parameter('update_rate').value
         self.moving_buffer = self.get_parameter('moving_buffer').value
+        self.trimmean_percent = self.get_parameter('trimmean_percent').value
 
     def collect_analog_data(self, msg):
         """Collect incoming data points into the buffer."""
         # Update moving buffers for each sensor
-        for pin in self.pins:
+        for pin in self.PINS:
             if pin < len(msg.data):
                 self.sensor_buffers[pin].append(msg.data[pin])
 
@@ -101,7 +112,8 @@ class AnalogProcessor(Node):
         sorted_values = np.sort(values)
 
         # Determine slice indices
-        first = round(self.moving_buffer/4)
+        percent_to_cut = self.trimmean_percent / 2
+        first = round(self.moving_buffer * percent_to_cut / 100)
         last = self.moving_buffer - first
         # Take middle values
         middle_values = sorted_values[first:last]
@@ -112,7 +124,7 @@ class AnalogProcessor(Node):
         msg = ChemSensor()
 
         # Process data one pin at a time
-        for pin in self.pins:
+        for pin in self.PINS:
             # Use pin map to determine which sensor is connected to this pin
             sensor = self.pin_map[pin]
 
@@ -123,7 +135,8 @@ class AnalogProcessor(Node):
 
                 # Calculate mean of recorded bits and convert to voltage
                 mean_bits = self.calculate_trimmean(self.sensor_buffers[pin])
-                voltage = mean_bits * (3.3/4095.0) + self.voltage_offset
+                voltage = (mean_bits / self.ADC_MAX_VALUE * self.ADC_VOLTAGE_RANGE +
+                           self.voltage_offset)
 
                 # Assign fields of ChemSensor msg depending on sensor type
                 match sensor:
@@ -143,7 +156,9 @@ class AnalogProcessor(Node):
                         sensor_msg.voltage = voltage
                         sensor_msg.pin = pin
 
-        # Publish ChemSensor msg
+        # Add timestamp to message
+        msg.header.stamp = self.get_clock().now().to_msg()
+        # Publish ChemSensor message
         self.publisher.publish(msg)
 
         # Log publishing information
