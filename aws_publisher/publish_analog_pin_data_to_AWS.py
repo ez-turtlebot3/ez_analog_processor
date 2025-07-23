@@ -46,7 +46,7 @@ from awscrt import mqtt
 from awsiot import mqtt_connection_builder
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
+from ez_interfaces.msg import ChemSensor
 
 
 class Config:
@@ -236,8 +236,8 @@ class AnalogPinDataPublisher(Node):
 
         # Create subscription
         self.subscription = self.create_subscription(
-            Float32MultiArray,
-            '/processed_analog',
+            ChemSensor,
+            '/chem_sensor',
             self.sensor_callback,
             10
         )
@@ -247,7 +247,7 @@ class AnalogPinDataPublisher(Node):
 
         self.get_logger().info(
             f'Analog pin data publisher initialized with {config.publish_rate_hz} Hz rate limit'
-            )
+        )
 
     def sensor_callback(self, msg):
         """Handle incoming sensor data."""
@@ -256,18 +256,27 @@ class AnalogPinDataPublisher(Node):
             return
 
         try:
-            utc_datetime = datetime.datetime.now()
+            # Flatten out sensor_readings from ChemSensor message
+            sensor_readings = [
+                msg.temp.celsius,
+                msg.rh.percent,
+                msg.s1.voltage,
+                msg.s2.voltage,
+                msg.s3.voltage
+            ]
+            timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
             message = {
-                "sensor_readings": list(msg.data),
+                "sensor_readings": sensor_readings,  # T, RH, S1, S2, S3
                 "device_id": self.config.device_id,
-                "timestamp": utc_datetime.isoformat(),
+                "timestamp": timestamp,
                 "sensor_type": self.config.sensor_type,
                 "message_id": self.message_count
             }
 
             if self.aws_manager.publish(message):
                 self.message_count += 1
-                self.last_message_time = utc_datetime
+                self.last_message_time = timestamp
                 self.get_logger().info(
                     f"Published message {self.message_count} with "
                     f"{len(msg.data)} sensor readings"
