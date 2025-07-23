@@ -50,3 +50,4 @@ config/sensors.yaml
 
 # Secrets folder
 .secrets/
+TODO.md
