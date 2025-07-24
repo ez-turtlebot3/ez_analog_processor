@@ -32,7 +32,7 @@ Usage:
     python3 publish_analog_pin_data_to_AWS.py
 """
 
-import datetime
+# import datetime
 import json
 import logging
 import os
@@ -265,11 +265,12 @@ class AnalogPinDataPublisher(Node):
                 msg.s3.voltage
             ]
             timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            # utc_datetime = datetime.datetime.now()
 
             message = {
                 "sensor_readings": sensor_readings,  # T, RH, S1, S2, S3
                 "device_id": self.config.device_id,
-                "timestamp": timestamp,
+                "timestamp": timestamp,  # utc_datetime.isoformat(),
                 "sensor_type": self.config.sensor_type,
                 "message_id": self.message_count
             }
@@ -290,7 +291,8 @@ class AnalogPinDataPublisher(Node):
     def health_check(self):
         """Periodic health check."""
         if self.last_message_time:
-            time_since_last = (datetime.datetime.now() - self.last_message_time).total_seconds()
+            time_since_last = time.time() - self.last_message_time
+            # time_since_last = (datetime.datetime.now() - self.last_message_time).total_seconds()
             if time_since_last > 60:  # No messages in the last minute
                 self.get_logger().warning(
                     f"No messages published in {time_since_last:.1f} seconds"
