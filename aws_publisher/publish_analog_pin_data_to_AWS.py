@@ -281,6 +281,7 @@ class AnalogPinDataPublisher(Node):
                 self.get_logger().info(
                     f"Published message {self.message_count} with "
                     f"{len(sensor_readings)} sensor readings"
+                    f"from device id {self.config.device_id}"
                     )
             else:
                 self.get_logger().error("Failed to publish message to AWS IoT Core")
