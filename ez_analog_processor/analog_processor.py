@@ -7,7 +7,8 @@ from ez_interfaces.msg import ChemSensor
 
 
 class AnalogProcessor(Node):
-    """ROS 2 node for processing analog sensor data.
+    """
+    ROS 2 node for processing analog sensor data.
 
     Collects raw ADC values, applies statistical smoothing (trimmean),
     converts to physical units (temperature, humidity, voltage), and
@@ -100,7 +101,8 @@ class AnalogProcessor(Node):
                 self.sensor_buffers[pin].append(msg.data[pin])
 
     def calculate_trimmean(self, values):
-        """Calculate the trimmean of values in the buffer.
+        """
+        Calculate the trimmean of values in the buffer.
 
         Uses middle half of values once buffer is full.
         """
@@ -167,7 +169,8 @@ class AnalogProcessor(Node):
         self.get_logger().info(f'Published processed data from {samples_count} samples')
 
     def calc_env_var(self, voltage, conversion_type):
-        """Calculate humidity or temperature from voltage.
+        """
+        Calculate humidity or temperature from voltage.
 
         Uses equations determined from experiments.
         """
