@@ -70,7 +70,7 @@ class Config:
 
         # Fixed configuration
         self.mqtt_port = 8883
-        self.device_id = self._get_device_name()
+        self.device_id = 2  # self._get_device_name()
         self.mqtt_client_id = f"{self.device_id}-{uuid.uuid4()}"
         self.publish_interval = 1.0 / self.publish_rate_hz
 
