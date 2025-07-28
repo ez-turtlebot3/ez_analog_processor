@@ -51,3 +51,4 @@ config/sensors.yaml
 # Secrets folder
 .secrets/
 TODO.md
+mqtt-message-api-spec.yaml

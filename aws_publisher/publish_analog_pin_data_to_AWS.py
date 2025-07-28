@@ -3,7 +3,7 @@
 ROS2 Node that subscribes to analog pin data and publishes it to AWS IoT Core.
 
 This script creates a ROS2 node that:
-1. Subscribes to the '/processed_analog' topic to receive Float32MultiArray messages
+1. Subscribes to the '/chem_sensor' topic to receive ChemicalSensor messages
 2. Rate limits publishing to 4 Hz (configurable)
 3. Connects to AWS IoT Core using MQTT
 4. Publishes received sensor data to AWS IoT Core in JSON format
@@ -280,7 +280,7 @@ class AnalogPinDataPublisher(Node):
                 self.last_message_time = timestamp
                 self.get_logger().info(
                     f"Published message {self.message_count} with "
-                    f"{len(sensor_readings)} sensor readings"
+                    f"{len(sensor_readings)} sensor readings "
                     f"from device id {self.config.device_id}"
                     )
             else:
