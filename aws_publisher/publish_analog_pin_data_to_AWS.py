@@ -269,9 +269,9 @@ class AnalogPinDataPublisher(Node):
 
             message = {
                 "sensor_readings": json.dumps(sensor_readings),  # T, RH, S1, S2, S3 as JSON string
+                "sensor_type": self.config.sensor_type,
                 "device_id": self.config.device_id,
                 "timestamp": str(timestamp),  # timestamp as string
-                "sensor_type": self.config.sensor_type,
                 # "message_id": self.message_count
             }
 
@@ -281,7 +281,7 @@ class AnalogPinDataPublisher(Node):
                 self.get_logger().info(
                     f"Published message {self.message_count} "
                     f"from device id {self.config.device_id}"
-                    )
+                )
                 # Log the actual JSON for verification
                 self.get_logger().info(f"JSON payload: {json.dumps(message)}")
             else:
