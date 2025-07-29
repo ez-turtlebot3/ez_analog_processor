@@ -272,7 +272,7 @@ class AnalogPinDataPublisher(Node):
                 "device_id": self.config.device_id,
                 "timestamp": timestamp,  # utc_datetime.isoformat(),
                 "sensor_type": self.config.sensor_type,
-                "message_id": self.message_count
+                # "message_id": self.message_count
             }
 
             if self.aws_manager.publish(message):
