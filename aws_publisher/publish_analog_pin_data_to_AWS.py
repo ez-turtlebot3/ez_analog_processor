@@ -268,9 +268,9 @@ class AnalogPinDataPublisher(Node):
             # utc_datetime = datetime.datetime.now()
 
             message = {
-                "sensor_readings": sensor_readings,  # T, RH, S1, S2, S3
+                "sensor_readings": json.dumps(sensor_readings),  # T, RH, S1, S2, S3 as JSON string
                 "device_id": self.config.device_id,
-                "timestamp": timestamp,  # utc_datetime.isoformat(),
+                "timestamp": str(timestamp),  # timestamp as string
                 "sensor_type": self.config.sensor_type,
                 # "message_id": self.message_count
             }
@@ -279,10 +279,11 @@ class AnalogPinDataPublisher(Node):
                 self.message_count += 1
                 self.last_message_time = timestamp
                 self.get_logger().info(
-                    f"Published message {self.message_count} with "
-                    f"{len(sensor_readings)} sensor readings "
+                    f"Published message {self.message_count} "
                     f"from device id {self.config.device_id}"
                     )
+                # Log the actual JSON for verification
+                self.get_logger().info(f"JSON payload: {json.dumps(message)}")
             else:
                 self.get_logger().error("Failed to publish message to AWS IoT Core")
 
